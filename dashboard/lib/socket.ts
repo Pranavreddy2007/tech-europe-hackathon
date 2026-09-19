@@ -88,6 +88,7 @@ export function connectSocket() {
       recipientUid?: string;
       imageUrl?: string | null;
       recipientCount?: number;
+      platform?: string | null;
       timestamp: string;
     }) => {
       useDashboardStore.getState().addMessage({
@@ -98,6 +99,7 @@ export function connectSocket() {
         recipientUid: data.recipientUid,
         imageUrl: data.imageUrl ?? undefined,
         recipientCount: data.recipientCount,
+        platform: data.platform ?? undefined,
         timestamp: data.timestamp,
       });
     }
@@ -120,8 +122,8 @@ function describeToolCall(name: string, input: Record<string, unknown>): string 
     get_token_transfers: "Scanning token transfer activity",
     get_wallet_profile: `Profiling wallet ${String(input.address ?? "").slice(0, 10)}...`,
     query_data: "Running database query",
-    send_group_message: "Broadcasting on WhatsApp",
-    send_direct_message: "Sending WhatsApp message",
+    send_group_message: "Posting to Telegram group",
+    send_direct_message: "Sending direct message",
     generate_chart: `Generating ${input.chart_type ?? ""} chart`,
     get_knowledge: `Checking knowledge: "${input.term ?? ""}"`,
     store_knowledge: `Storing correction: "${input.term ?? ""}"`,

@@ -53,13 +53,30 @@ def _finished(task: asyncio.Task) -> None:
         log.error("Background task failed", exc_info=task.exception())
 
 
+async def _backfill_telegram_subscribers() -> None:
+    """Private Telegram chats that subscribed before the subscriber list existed."""
+    from . import state
+
+    if await state.get_list(state.TELEGRAM_SUBSCRIBERS):
+        return
+    for m in await governance.get_group_members():
+        if m.whatsapp_id.startswith("tg:") and not m.whatsapp_id.startswith("tg:-"):
+            await state.add_to_list(state.TELEGRAM_SUBSCRIBERS, m.whatsapp_id)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
     s = get_settings()
+    await _backfill_telegram_subscribers()
+    from .services import blockchain
+
+    _spawn(blockchain.warm_up())
     if s.telegram_bot_token and s.public_base_url:
-        ok = await telegram.get_client().set_webhook(f"{s.public_base_url.rstrip('/')}/webhook/telegram")
+        base = s.public_base_url.rstrip("/")
+        ok = await telegram.get_client().set_webhook(f"{base}/webhook/telegram")
         log.info("Telegram webhook %s", "registered" if ok else "registration FAILED")
+        await telegram.get_client().set_menu_button(f"{base}/miniapp/")
     log.info(
         "GovMind ready — model=%s whatsapp=%s telegram=%s",
         s.gemini_model, "on" if s.whatsapp_enabled else "demo", "on" if s.telegram_bot_token else "off",
@@ -127,6 +144,17 @@ async def telegram_webhook(request: Request):
 async def health():
     summary, proposals = await asyncio.gather(treasury.get_treasury_summary(), governance.get_active_proposals())
     return HealthResponse(treasury=summary, proposals=proposals)
+
+
+@app.get("/api/chain")
+async def chain_status():
+    """GovMind's own Endless Chain account (like the original's startup log line)."""
+    from .services import blockchain
+
+    try:
+        return await blockchain.agent_account()
+    except Exception as err:
+        return {"error": str(err)}
 
 
 @app.get("/api/members", response_model=list[GroupMemberOut])
@@ -325,8 +353,11 @@ async def trigger_submit_proposal():
 @app.post("/trigger/reset-demo")
 async def trigger_reset_demo():
     """Reload the MetaDAO demo data and forget WhatsApp conversation history."""
+    from .services import blockchain
+
     await seed()
     handler.reset_state()
+    _spawn(blockchain.warm_up())
     return {"reset": True}
 
 

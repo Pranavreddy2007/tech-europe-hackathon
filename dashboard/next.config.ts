@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   // Static export so the backend (Modal) can serve the dashboard from the same URL.
   output: "export",
+  // Emit /miniapp/index.html so the backend serves the Telegram Mini App at /miniapp/.
+  trailingSlash: true,
 };
 
 export default nextConfig;

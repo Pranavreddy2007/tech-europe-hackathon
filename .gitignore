@@ -27,3 +27,4 @@ backend/test_charts/
 *.tsbuildinfo
 npm-debug.log*
 .pytest_cache/
+endless_agent_key

@@ -47,12 +47,12 @@ const INITIAL_NODES: GraphNode[] = [
   { id: "generate_chart", label: "Generate Chart", icon: "📈", color: "#3b82f6", group: "utility", x: 540, y: 440 },
 
   // Communications (bottom-center)
-  { id: "send_group_message",  label: "Broadcast",      icon: "💬", color: "#10b981", group: "comms", x: 400, y: 480 },
-  { id: "send_direct_message", label: "WhatsApp DM",    icon: "✉️", color: "#10b981", group: "comms", x: 540, y: 560 },
+  { id: "send_group_message",  label: "Group Message",  icon: "💬", color: "#10b981", group: "comms", x: 400, y: 480 },
+  { id: "send_direct_message", label: "Direct Message", icon: "✉️", color: "#10b981", group: "comms", x: 540, y: 560 },
   { id: "log_action",          label: "Log Action",     icon: "📝", color: "#555568", group: "utility", x: 400, y: 620 },
 
   // Member/Wallet cluster (bottom-left)
-  { id: "get_group_members",    label: "WA Members",     icon: "👥", color: "#06b6d4", group: "governance", x: 80,  y: 440 },
+  { id: "get_group_members",    label: "Group Members",  icon: "👥", color: "#06b6d4", group: "governance", x: 80,  y: 440 },
   { id: "get_non_voters",       label: "Non-Voters",     icon: "📢", color: "#06b6d4", group: "governance", x: 220, y: 440 },
   { id: "link_wallet",          label: "Link Wallet",    icon: "🔗", color: "#22d3ee", group: "governance", x: 80,  y: 560 },
   { id: "get_wallet_for_user",  label: "Get Wallet",     icon: "👛", color: "#06b6d4", group: "governance", x: 220, y: 560 },

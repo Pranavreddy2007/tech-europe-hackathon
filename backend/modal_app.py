@@ -43,7 +43,8 @@ image = (
     .env({
         "CHAIN_HELPER_DIR": "/root/chain",
         "CHART_DIR": "/data/charts",
-        "DASHBOARD_DIR": "/root/dashboard",  # served at "/" when the dashboard export is bundled below
+        "DASHBOARD_DIR": "/root/dashboard",
+        "ENDLESS_KEY_FILE": "/data/endless_agent_key",  # persists the auto-generated testnet account  # served at "/" when the dashboard export is bundled below
         "PYDANTIC_AI_NO_BANNER": "1",
     })
     .add_local_file(HERE / "chain" / "endless.mjs", "/root/chain/endless.mjs")

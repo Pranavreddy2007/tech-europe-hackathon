@@ -298,15 +298,15 @@ const BOB = { from: "447700900002", name: "Bob Martinez" };
 
 // The 2-minute demo: each step waits for the agent to finish before the next starts.
 const DEMO_STEPS: Trigger[] = [
-  { label: "Alice asks on WhatsApp", endpoint: "whatsapp-demo", body: { ...ALICE, text: "Hey GovMind, is proposal 49 safe to vote for?" } },
+  { label: "Alice asks GovMind", endpoint: "whatsapp-demo", body: { ...ALICE, text: "Hey GovMind, is proposal 49 safe to vote for?" } },
   { label: "Attacker submits proposal", endpoint: "submit-proposal" },
   { label: "Attack scan", endpoint: "attack-check" },
   { label: "Bob asks for a chart", endpoint: "whatsapp-demo", body: { ...BOB, text: "What's our treasury runway? Send me a chart." } },
 ];
 
 const ACTIONS: (Trigger & { color: string })[] = [
-  { label: "WhatsApp: Is #49 safe?", endpoint: "whatsapp-demo", body: DEMO_STEPS[0].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
-  { label: "WhatsApp: Runway chart", endpoint: "whatsapp-demo", body: DEMO_STEPS[3].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
+  { label: "Alice asks: Is #49 safe?", endpoint: "whatsapp-demo", body: DEMO_STEPS[0].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
+  { label: "Bob asks: Runway chart", endpoint: "whatsapp-demo", body: DEMO_STEPS[3].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
   { label: "🚨 Attacker submits proposal", endpoint: "submit-proposal", color: "hover:border-red-500/50 hover:text-red-400" },
   { label: "Proposal #49", endpoint: "new-proposal", body: { proposal_number: 49 }, color: "hover:border-blue-500/50 hover:text-blue-400" },
   { label: "Proposal #48", endpoint: "new-proposal", body: { proposal_number: 48 }, color: "hover:border-blue-500/50 hover:text-blue-400" },

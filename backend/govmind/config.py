@@ -31,11 +31,13 @@ class Settings(BaseSettings):
     # Telegram Bot API (token from @BotFather)
     telegram_bot_token: str = ""
     telegram_webhook_secret: str = ""  # derived from the bot token when empty
+    telegram_group_id: str = ""  # optional: DAO group chat id; otherwise learned when the bot is added
 
     # Endless Chain
     endless_private_key: str = ""
     endless_network: str = "testnet"
     chain_helper_dir: Path = Path(__file__).resolve().parent.parent / "chain"
+    endless_key_file: Path = Path("./endless_agent_key")  # auto-generated testnet key when no private key is set
 
     # Server
     public_base_url: str = ""  # used for chart links; inferred from requests if empty

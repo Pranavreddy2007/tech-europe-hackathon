@@ -57,7 +57,7 @@ function MessageBubble({ msg }: { msg: WhatsAppMessage }) {
         )}
         {isOutgoing && msg.channel === "group" && (
           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300/80 uppercase tracking-wider">
-            Broadcast{msg.recipientCount ? ` → ${msg.recipientCount}` : ""}
+            {msg.platform ?? "Broadcast"}{msg.recipientCount ? ` → ${msg.recipientCount}` : ""}
           </span>
         )}
         {isOutgoing && msg.channel === "dm" && (

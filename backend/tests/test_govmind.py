@@ -222,6 +222,14 @@ class FakeTelegram:
     async def send_typing(self, to):
         pass
 
+    async def bot_username(self):
+        return "GovMind_bot"
+
+    async def is_member(self, group, user):
+        return user in self.group_members
+
+    group_members: set = set()
+
 
 def test_telegram_webhook_requires_secret_and_routes_messages(monkeypatch):
     from govmind.telegram import client as tg_client
@@ -265,3 +273,44 @@ async def test_telegram_start_subscribes_and_broadcast_reaches_phone(monkeypatch
     await seed()
     from govmind.services import governance as gov
     assert "tg:777" in await gov.get_broadcast_list()
+
+
+async def test_telegram_group_like_luffa(monkeypatch):
+    """Bot added to a group: learns it, answers there, and doesn't double-notify group members."""
+    from govmind import state
+    from govmind.telegram import handler as tg_handler
+    from govmind.telegram.models import Update
+
+    fake = FakeTelegram()
+    fake.group_members = {"tg:777"}
+    for target in ("govmind.telegram.handler.get_client", "govmind.messaging.telegram.get_client",
+                   "govmind.agent.tools.telegram.get_client"):
+        monkeypatch.setattr(target, lambda: fake)
+
+    added = Update.model_validate({"update_id": 200, "my_chat_member": {
+        "chat": {"id": -100555, "type": "supergroup", "title": "MetaDAO Council"},
+        "from": {"id": 777, "first_name": "Pranav"},
+        "new_chat_member": {"status": "member", "user": {"id": 1, "first_name": "GovMind"}}}})
+    await tg_handler.handle_update(added)
+    assert "tg:-100555" in await state.telegram_groups()
+    assert fake.sent[-1][0] == "tg:-100555" and "active in MetaDAO Council" in fake.sent[-1][1]
+
+    runs = []
+
+    async def fake_process(sender, name, text, channel, group_id=None):
+        runs.append((sender, text, channel, group_id))
+
+    monkeypatch.setattr(tg_handler, "process_text", fake_process)
+    msg = Update.model_validate({"update_id": 201, "message": {
+        "message_id": 9, "chat": {"id": -100555, "type": "supergroup", "title": "MetaDAO Council"},
+        "from": {"id": 888, "first_name": "Maya"}, "text": "@GovMind_bot is proposal 49 safe?"}})
+    await tg_handler.handle_update(msg)
+    assert runs == [("tg:888", "@GovMind_bot is proposal 49 safe?", "Telegram group", "tg:-100555")]
+
+    # Asked from the group: the answer goes to that group only.
+    assert await tools.broadcast_recipients(tools.RunContext(sender_id="tg:888", group_id="tg:-100555")) == [
+        "tg:-100555"]
+    # A dashboard/scheduled alert: the group, plus subscribers who aren't in it (777 is, so no duplicate).
+    await state.add_to_list(state.TELEGRAM_SUBSCRIBERS, "tg:999")
+    recipients = await tools.broadcast_recipients(tools.RunContext())
+    assert recipients[0] == "tg:-100555" and "tg:999" in recipients and "tg:777" not in recipients

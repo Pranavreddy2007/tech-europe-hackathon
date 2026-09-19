@@ -16,14 +16,17 @@ from .. import events
 from ..config import get_settings
 from ..schemas import MessageSent, Schema, ToolError
 from ..services import blockchain, chart, governance, knowledge, security, treasury
+from .. import state
 from ..messaging import deliver
+from ..telegram import client as telegram
 
 
 @dataclass
 class RunContext:
     """Who the current agent run is talking to."""
 
-    sender_id: str | None = None  # WhatsApp id of the member who triggered the run
+    sender_id: str | None = None  # member id (WhatsApp number or tg:<id>) of whoever triggered the run
+    group_id: str | None = None  # set when the run was triggered from a Telegram group chat
 
 
 class ToolInput(BaseModel):
@@ -329,19 +332,42 @@ async def _deliver(to: str, text: str, image_url: str | None) -> bool:
     return await deliver(to, text, image_url)
 
 
+async def broadcast_recipients(ctx: RunContext) -> list[str]:
+    """Where a group message goes.
+
+    Triggered from a Telegram group: that group only (like the original Luffa bot answering in its group).
+    Otherwise: every Telegram group GovMind is in, private Telegram subscribers who aren't already in one of
+    those groups (so nobody gets the alert twice), and the WhatsApp broadcast list.
+    """
+    if ctx.group_id:
+        return [ctx.group_id]
+    groups = await state.telegram_groups()
+    subscribers = await state.get_list(state.TELEGRAM_SUBSCRIBERS)
+    tg = telegram.get_client()
+    solo = []
+    for sub in subscribers:
+        in_group = await asyncio.gather(*(tg.is_member(g, sub) for g in groups)) if groups else []
+        if not any(in_group):
+            solo.append(sub)
+    whatsapp = [m for m in await governance.get_broadcast_list() if not m.startswith("tg:")]
+    return list(dict.fromkeys(groups + solo + whatsapp + get_settings().broadcast_numbers))
+
+
 @tool(
     "send_group_message",
-    "Broadcasts a message to the whole DAO on WhatsApp and Telegram — every member who has messaged GovMind or "
-    "registered a number, plus any configured broadcast numbers. Use this to post summaries, alerts, answers, and reminders everyone should see.",
+    "Posts a message to the DAO group chat on Telegram (and to members subscribed on Telegram/WhatsApp). "
+    "When you were messaged from the group, this answers in that group. Use this to post summaries, alerts, answers, and reminders everyone should see.",
     lambda a: "Broadcasting to DAO members on WhatsApp...",
 )
 async def _broadcast(args: GroupMessageArgs, ctx: RunContext):
-    recipients = await governance.get_broadcast_list()
-    recipients = list(dict.fromkeys(recipients + get_settings().broadcast_numbers))
+    recipients = await broadcast_recipients(ctx)
     if not recipients:
         return ToolError(error="No DAO members are reachable on WhatsApp yet, so there is no one to broadcast to.")
     results = await asyncio.gather(*(_deliver(r, args.text, args.image_url) for r in recipients))
-    await events.whatsapp_sent("group", args.text, image_url=args.image_url, recipient_count=len(recipients))
+    await events.whatsapp_sent(
+        "group", args.text, image_url=args.image_url, recipient_count=len(recipients),
+        platform="Telegram group" if any(r.startswith("tg:-") for r in recipients) else "Broadcast",
+    )
     return MessageSent(
         sent=any(results),
         channel="group",

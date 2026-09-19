@@ -135,15 +135,30 @@ demo-sequence.sh          Scripted 3-minute demo
 
 Without WhatsApp Cloud API credentials, the app runs in demo mode: outgoing WhatsApp messages are simulated and shown in the live feed, and the demo buttons push member messages through the real inbound pipeline.
 
-To redeploy with the dashboard bundled: `cd dashboard && npm run build && cd ../backend && modal deploy modal_app.py`.
+To redeploy (builds the dashboard, then a clean cutover on Modal): `backend/deploy.sh`.
 
-## Telegram: real push notifications
+**Endless Chain:** without `ENDLESS_PRIVATE_KEY`, GovMind generates a testnet account, funds it from the faucet and keeps the key on the Modal volume, like the original. If Endless's RPC is down, a circuit breaker skips on-chain steps for 15 minutes so agent runs never stall.
 
-GovMind also runs as a Telegram bot, and it's the quickest way to get alerts on a real phone:
+## Telegram (the original Luffa experience, on Telegram)
 
-1. In Telegram, message **@BotFather**, send `/newbot`, and copy the token.
-2. Add `TELEGRAM_BOT_TOKEN=<token>` and `PUBLIC_BASE_URL=<your modal url>` to the `govmind-secrets` Modal secret, then `modal deploy`. The webhook registers itself on startup.
-3. Open your bot and tap **Start**. You're now on the DAO broadcast list, so every alert, flagged proposal and broadcast arrives as a push notification. You can also chat with the agent there.
+📄 **How it all works:** [docs/GovMind-Architecture.pdf](docs/GovMind-Architecture.pdf) covers the agent loop, how Modal and Pydantic are used, and the Telegram design.
+
+The original GovMind lived in a Luffa group chat with a Luffa mini app. This version does the same on Telegram (bot: [@GovMind_bot](https://t.me/GovMind_bot)):
+
+| Original (Luffa) | Now (Telegram) |
+|---|---|
+| Bot inside the DAO group chat | Add @GovMind_bot to your DAO group. It learns the group, posts briefings and alerts there, and answers questions asked in the group |
+| Tracks group members, @mentions, auto-links wallets | Same, for Telegram members |
+| Quick-chat buttons | Keyboard: Is proposal 49 safe? · Run attack scan · Treasury status · Who hasn't voted? · Link wallet · Check my EDS balance |
+| Luffa mini app (DAO Health, Agent graph, floating chat) | **Telegram Mini App**, opened from the bot's menu button: DAO Health, live Agent graph, Feed, floating chat |
+| DM nudges | Private messages to members who started the bot |
+
+Alerts go to the DAO group, plus private subscribers who aren't in the group (checked with `getChatMember`, so nobody gets duplicates).
+
+Setup:
+1. In Telegram, message **@BotFather**, send `/newbot`, and copy the token. So the bot can read every group message (like the Luffa bot did), send `/setprivacy` → Disable. Otherwise it only sees mentions and replies.
+2. Add `TELEGRAM_BOT_TOKEN=<token>` and `PUBLIC_BASE_URL=<your modal url>` to the `govmind-secrets` Modal secret and deploy. On startup the webhook and the Mini App menu button register themselves.
+3. Tap **Start** in a private chat to subscribe to alerts, and/or add the bot to your DAO group.
 
 ## Setup
 

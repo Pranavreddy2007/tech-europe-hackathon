@@ -21,6 +21,7 @@ MAX_CAPTION = 1024
 KEYBOARD = [
     ["Is proposal 49 safe?", "Run attack scan"],
     ["Treasury status", "Who hasn't voted?"],
+    ["Link wallet", "Check my EDS balance"],
 ]
 
 
@@ -83,10 +84,42 @@ class TelegramClient:
     async def send_typing(self, to: str) -> None:
         await self._call("sendChatAction", {"chat_id": to.removeprefix(PREFIX), "action": "typing"})
 
+    async def _get(self, method: str, payload: dict) -> dict | None:
+        if not get_settings().telegram_bot_token:
+            return None
+        try:
+            data = (await self._http.post(f"{self._base}/{method}", json=payload)).json()
+            return data.get("result") if data.get("ok") else None
+        except httpx.HTTPError:
+            return None
+
+    async def is_member(self, group: str, user: str) -> bool:
+        """True if the user is in the group chat (so a group post already notifies them)."""
+        result = await self._get(
+            "getChatMember", {"chat_id": group.removeprefix(PREFIX), "user_id": int(user.removeprefix(PREFIX))}
+        )
+        return bool(result) and result.get("status") in ("creator", "administrator", "member", "restricted")
+
+    async def bot_username(self) -> str | None:
+        result = await self._get("getMe", {})
+        return result.get("username") if result else None
+
     async def set_webhook(self, url: str) -> bool:
         return await self._call(
             "setWebhook",
-            {"url": url, "secret_token": webhook_secret(), "allowed_updates": ["message"], "drop_pending_updates": True},
+            {
+                "url": url,
+                "secret_token": webhook_secret(),
+                "allowed_updates": ["message", "my_chat_member"],
+                "drop_pending_updates": True,
+            },
+        )
+
+    async def set_menu_button(self, web_app_url: str) -> bool:
+        """The bot's menu button opens the GovMind Mini App (the Telegram counterpart of the Luffa mini app)."""
+        return await self._call(
+            "setChatMenuButton",
+            {"menu_button": {"type": "web_app", "text": "GovMind", "web_app": {"url": web_app_url}}},
         )
 
 

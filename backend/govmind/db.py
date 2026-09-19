@@ -143,6 +143,14 @@ class NudgeTracking(Base):
     sent_at: Mapped[datetime]
 
 
+class BotState(Base):
+    """Small key/value store for things the bot learns at runtime (Telegram groups, subscribers)."""
+
+    __tablename__ = "bot_state"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[list] = mapped_column(JSON, default=list)
+
+
 def _engine_args(url: str) -> tuple[str, dict]:
     # asyncpg rejects libpq's ?sslmode=…; translate it to connect_args.
     parts = urlsplit(url)

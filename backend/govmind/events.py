@@ -65,7 +65,12 @@ async def whatsapp_received(
 
 
 async def whatsapp_sent(
-    channel: str, text: str, recipient: str | None = None, image_url: str | None = None, recipient_count: int = 1
+    channel: str,
+    text: str,
+    recipient: str | None = None,
+    image_url: str | None = None,
+    recipient_count: int = 1,
+    platform: str | None = None,
 ) -> None:
     await sio.emit(
         "whatsapp:message-sent",
@@ -75,6 +80,7 @@ async def whatsapp_sent(
             "recipientUid": recipient,
             "imageUrl": image_url,
             "recipientCount": recipient_count,
+            "platform": platform,
             "timestamp": _now(),
         },
     )

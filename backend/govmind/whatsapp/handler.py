@@ -87,13 +87,19 @@ async def _track(sender: str, sender_name: str | None, text: str) -> None:
         log.exception("Member tracking failed")
 
 
-async def process_text(sender: str, sender_name: str | None, text: str, channel: str) -> None:
-    """Channel-agnostic core: track the member, show the message on the dashboard, run the agent."""
+async def process_text(
+    sender: str, sender_name: str | None, text: str, channel: str, group_id: str | None = None
+) -> None:
+    """Channel-agnostic core: track the member, show the message on the dashboard, run the agent.
+
+    With group_id set the message came from a group chat, and the agent answers in that group
+    (the original Luffa group-chat behaviour); otherwise it replies privately to the sender.
+    """
     log.info("%s message from %s: %s", channel, sender, text[:100])
-    await events.whatsapp_received("dm", text, sender, sender_name, platform=channel)
+    await events.whatsapp_received("group" if group_id else "dm", text, sender, sender_name, platform=channel)
     await _track(sender, sender_name, text)
 
-    history = _history.setdefault(sender, deque(maxlen=MAX_HISTORY))
+    history = _history.setdefault(group_id or sender, deque(maxlen=MAX_HISTORY))
     history.append((sender_name or sender, text, time.time()))
 
     member = await governance.get_group_member(sender)
@@ -111,14 +117,24 @@ async def process_text(sender: str, sender_name: str | None, text: str, channel:
         lines = "\n".join(f"[{who}]: {said}" for who, said, _ in recent)
         conversation = f"\n\nRecent conversation with this member (use it for follow-ups):\n{lines}\n---"
 
-    trigger = (
-        f'A DAO member sent you this {channel} message: "{text}"\n\nSender info:\n'
-        + "\n".join(info)
-        + conversation
-        + "\n\nRespond helpfully. If it's a question, answer it using the available tools. If it's a correction "
-        "or definition, store it. Check the knowledge base for relevant corrections before answering. Reply to "
-        "the member with send_direct_message (no whatsapp_id needed). Broadcast with send_group_message only if "
-        "the whole DAO needs to see it."
-    )
-    await runner.run(trigger, RunContext(sender_id=sender))
+    if group_id:
+        trigger = (
+            f'A DAO member sent this message in the {channel} chat: "{text}"\n\nSender info:\n'
+            + "\n".join(info)
+            + conversation
+            + "\n\nRespond helpfully. If it's a question, answer it using the available tools. If it's a "
+            "correction or definition, store it. Check the knowledge base for relevant corrections before "
+            "answering. Post your response to the group chat with send_group_message."
+        )
+    else:
+        trigger = (
+            f'A DAO member sent you this {channel} message: "{text}"\n\nSender info:\n'
+            + "\n".join(info)
+            + conversation
+            + "\n\nRespond helpfully. If it's a question, answer it using the available tools. If it's a "
+            "correction or definition, store it. Check the knowledge base for relevant corrections before "
+            "answering. Reply to the member with send_direct_message (no whatsapp_id needed). Broadcast with "
+            "send_group_message only if the whole DAO needs to see it."
+        )
+    await runner.run(trigger, RunContext(sender_id=sender, group_id=group_id))
     history.append(("GovMind", "[responded]", time.time()))
