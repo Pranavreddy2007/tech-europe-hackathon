@@ -54,10 +54,13 @@ async def agent_error(error: str) -> None:
     await sio.emit("agent:error", {"error": error, "timestamp": _now()})
 
 
-async def whatsapp_received(channel: str, text: str, sender: str | None = None, name: str | None = None) -> None:
+async def whatsapp_received(
+    channel: str, text: str, sender: str | None = None, name: str | None = None, platform: str = "WhatsApp"
+) -> None:
     await sio.emit(
         "whatsapp:message-received",
-        {"type": channel, "text": text, "senderUid": sender, "senderName": name, "timestamp": _now()},
+        {"type": channel, "text": text, "senderUid": sender, "senderName": name, "platform": platform,
+         "timestamp": _now()},
     )
 
 

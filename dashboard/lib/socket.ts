@@ -66,7 +66,7 @@ export function connectSocket() {
 
   socket.on(
     "whatsapp:message-received",
-    (data: { type: string; text: string; senderUid?: string; senderName?: string; timestamp: string }) => {
+    (data: { type: string; text: string; senderUid?: string; senderName?: string; platform?: string; timestamp: string }) => {
       useDashboardStore.getState().addMessage({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: "incoming",
@@ -74,6 +74,7 @@ export function connectSocket() {
         text: data.text,
         senderUid: data.senderUid,
         senderName: data.senderName,
+        platform: data.platform,
         timestamp: data.timestamp,
       });
     }

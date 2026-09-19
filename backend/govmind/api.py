@@ -20,11 +20,15 @@ from pydantic import BaseModel, Field, ValidationError
 from .agent import runner
 from .config import get_settings
 from .db import init_db
+from . import events
 from .events import sio
 from .schemas import GroupMemberOut, HealthResponse, WalletLink
 from .services import chart, governance, treasury
 from .whatsapp.client import verify_signature
 from .seed import seed
+from .telegram import client as telegram
+from .telegram.handler import handle_update
+from .telegram.models import Update
 from .whatsapp import handler
 from .whatsapp.handler import handle_message
 from .whatsapp.models import InboundMessage, TextBody, WebhookPayload
@@ -51,7 +55,13 @@ def _finished(task: asyncio.Task) -> None:
 async def lifespan(_: FastAPI):
     await init_db()
     s = get_settings()
-    log.info("GovMind ready — model=%s whatsapp=%s", s.gemini_model, "on" if s.whatsapp_enabled else "off")
+    if s.telegram_bot_token and s.public_base_url:
+        ok = await telegram.get_client().set_webhook(f"{s.public_base_url.rstrip('/')}/webhook/telegram")
+        log.info("Telegram webhook %s", "registered" if ok else "registration FAILED")
+    log.info(
+        "GovMind ready — model=%s whatsapp=%s telegram=%s",
+        s.gemini_model, "on" if s.whatsapp_enabled else "demo", "on" if s.telegram_bot_token else "off",
+    )
     yield
 
 
@@ -93,6 +103,18 @@ async def receive_webhook(request: Request):
     # Acknowledge immediately — Meta retries anything slower than a few seconds.
     for message, name in payload.iter_messages():
         _spawn(handle_message(message, name))
+    return {"status": "ok"}
+
+
+@app.post("/webhook/telegram")
+async def telegram_webhook(request: Request):
+    if request.headers.get("x-telegram-bot-api-secret-token") != telegram.webhook_secret():
+        raise HTTPException(status_code=401, detail="Bad secret")
+    try:
+        update = Update.model_validate_json(await request.body())
+    except ValidationError:
+        return {"status": "ignored"}
+    _spawn(handle_update(update))
     return {"status": "ok"}
 
 
@@ -267,6 +289,35 @@ async def trigger_whatsapp_demo(body: WhatsAppDemoBody):
     )
     await handle_message(msg, body.name)
     return TriggerResponse(trigger="whatsapp-demo", response="handled")
+
+
+@app.post("/trigger/submit-proposal", response_model=TriggerResponse)
+async def trigger_submit_proposal():
+    """Demo: a freshly funded attacker wallet submits a treasury-draining proposal; GovMind flags it."""
+    proposal = await governance.create_proposal(
+        title="Emergency Liquidity Bridge",
+        body=(
+            "URGENT: transfer 70 EDS to a bridge contract to provide emergency liquidity for a partner protocol. "
+            "Time-sensitive, so the voting window is shortened to 2 days. Details will be shared after approval."
+        ),
+        proposer_address="0x" + "atk002".rjust(40, "0"),
+        requested_amount=70,
+        recipient_address="0x" + "bridge9e2b".rjust(40, "0"),
+        voting_days=2,
+    )
+    await events.whatsapp_received(
+        "group", f"New proposal submitted: #{proposal.proposal_number} {proposal.title} (70 EDS)",
+        name="MetaDAO governance", platform="Governance",
+    )
+    response = await runner.run(
+        f"A member just submitted a NEW governance proposal: Proposal #{proposal.proposal_number}. "
+        "Follow the PROPOSAL INTELLIGENCE process immediately: check the proposer's wallet profile and funding "
+        "source, compare with recent token transfers and other active proposals, and calculate the treasury "
+        "impact. If the risk is HIGH or CRITICAL, broadcast a short, urgent message that starts with "
+        "'🚨 GOVERNANCE ALERT' so every member gets notified on their phone, with the key evidence and a clear "
+        "recommendation. Keep the alert under 900 characters."
+    )
+    return TriggerResponse(trigger="submit-proposal", response=response)
 
 
 @app.post("/trigger/reset-demo")

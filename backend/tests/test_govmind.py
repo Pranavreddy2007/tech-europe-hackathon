@@ -8,6 +8,7 @@ os.environ["CHART_DIR"] = "./test_charts"
 os.environ["WHATSAPP_ACCESS_TOKEN"] = ""
 os.environ["WHATSAPP_APP_SECRET"] = "test-secret"
 os.environ["WHATSAPP_VERIFY_TOKEN"] = "verify-me"
+os.environ["TELEGRAM_BOT_TOKEN"] = "123:test"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -176,7 +177,7 @@ async def test_agent_loop_replies_on_whatsapp(monkeypatch):
     async def record(name, *args):
         emitted.append(name)
 
-    monkeypatch.setattr(tools, "get_client", lambda: FakeWA())
+    monkeypatch.setattr("govmind.messaging.whatsapp.get_client", lambda: FakeWA())
     monkeypatch.setattr(runner.events, "tool_start", lambda tool, _: record(f"start:{tool}"))
     monkeypatch.setattr(runner.events, "tool_result", lambda tool, _: record(f"result:{tool}"))
 
@@ -204,3 +205,63 @@ async def test_bad_tool_args_are_reported_to_the_model():
     assert await runner.run("x", model=FunctionModel(scripted)) == "not found"
     [ret] = [p for p in seen[1][-1].parts if isinstance(p, ToolReturnPart)]
     assert "not found" in ret.content
+
+
+class FakeTelegram:
+    def __init__(self):
+        self.sent = []
+
+    async def send_text(self, to, text, keyboard=False):
+        self.sent.append((to, text, keyboard))
+        return True
+
+    async def send_image(self, to, link, caption=None):
+        self.sent.append((to, link, "image"))
+        return True
+
+    async def send_typing(self, to):
+        pass
+
+
+def test_telegram_webhook_requires_secret_and_routes_messages(monkeypatch):
+    from govmind.telegram import client as tg_client
+
+    seen = []
+
+    async def fake_handle(update):
+        seen.append(update.message.text)
+
+    monkeypatch.setattr("govmind.api.handle_update", fake_handle)
+    update = {"update_id": 1, "message": {"message_id": 5, "chat": {"id": 42, "type": "private"},
+                                          "from": {"id": 42, "first_name": "Pranav"}, "text": "Run attack scan"}}
+    with TestClient(app) as client:
+        assert client.post("/webhook/telegram", json=update).status_code == 401
+        ok = client.post("/webhook/telegram", json=update,
+                         headers={"X-Telegram-Bot-Api-Secret-Token": tg_client.webhook_secret()})
+        assert ok.status_code == 200
+    assert seen == ["Run attack scan"]
+
+
+async def test_telegram_start_subscribes_and_broadcast_reaches_phone(monkeypatch):
+    from govmind.telegram import handler as tg_handler
+    from govmind.telegram.models import Update
+
+    fake = FakeTelegram()
+    monkeypatch.setattr("govmind.telegram.handler.get_client", lambda: fake)
+    monkeypatch.setattr("govmind.messaging.telegram.get_client", lambda: fake)
+
+    start = Update.model_validate({"update_id": 99, "message": {
+        "message_id": 1, "chat": {"id": 777, "type": "private"},
+        "from": {"id": 777, "first_name": "Pranav"}, "text": "/start"}})
+    await tg_handler.handle_update(start)
+    assert fake.sent[0][0] == "tg:777" and fake.sent[0][2] is True  # welcome + keyboard
+
+    result, _, is_error = await tools.execute(
+        "send_group_message", {"text": "🚨 GOVERNANCE ALERT test"}, tools.RunContext())
+    assert not is_error and "tg:777" in result["recipients"]
+    assert ("tg:777", "🚨 GOVERNANCE ALERT test", False) in fake.sent
+
+    # A demo reset keeps real Telegram subscribers.
+    await seed()
+    from govmind.services import governance as gov
+    assert "tg:777" in await gov.get_broadcast_list()

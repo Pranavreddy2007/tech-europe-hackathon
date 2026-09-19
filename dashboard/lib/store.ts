@@ -27,6 +27,7 @@ export interface WhatsAppMessage {
   text: string;
   senderUid?: string;
   senderName?: string;
+  platform?: string;
   recipientUid?: string;
   imageUrl?: string;
   recipientCount?: number;

@@ -137,6 +137,14 @@ Without WhatsApp Cloud API credentials, the app runs in demo mode: outgoing What
 
 To redeploy with the dashboard bundled: `cd dashboard && npm run build && cd ../backend && modal deploy modal_app.py`.
 
+## Telegram: real push notifications
+
+GovMind also runs as a Telegram bot, and it's the quickest way to get alerts on a real phone:
+
+1. In Telegram, message **@BotFather**, send `/newbot`, and copy the token.
+2. Add `TELEGRAM_BOT_TOKEN=<token>` and `PUBLIC_BASE_URL=<your modal url>` to the `govmind-secrets` Modal secret, then `modal deploy`. The webhook registers itself on startup.
+3. Open your bot and tap **Start**. You're now on the DAO broadcast list, so every alert, flagged proposal and broadcast arrives as a push notification. You can also chat with the agent there.
+
 ## Setup
 
 ### 1. WhatsApp Cloud API

@@ -48,7 +48,7 @@ function MessageBubble({ msg }: { msg: WhatsAppMessage }) {
         ) : (
           <>
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 uppercase tracking-wider">
-              {msg.channel === "dm" ? "WhatsApp In" : "Broadcast"}
+              {msg.channel === "dm" ? `${msg.platform ?? "WhatsApp"} In` : msg.platform ?? "Broadcast"}
             </span>
             {msg.senderName && (
               <span className="text-[9px] font-semibold text-[var(--text-secondary)]">{msg.senderName}</span>

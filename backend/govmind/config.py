@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Comma-separated numbers (E.164) that always receive DAO broadcasts
     whatsapp_broadcast_numbers: str = ""
 
+    # Telegram Bot API (token from @BotFather)
+    telegram_bot_token: str = ""
+    telegram_webhook_secret: str = ""  # derived from the bot token when empty
+
     # Endless Chain
     endless_private_key: str = ""
     endless_network: str = "testnet"

@@ -59,6 +59,7 @@ def extract_wallet(text: str) -> str | None:
 
 
 async def handle_message(msg: InboundMessage, sender_name: str | None) -> None:
+    """Inbound WhatsApp message."""
     if _already_seen(msg.id):
         return
     sender = msg.from_
@@ -69,10 +70,14 @@ async def handle_message(msg: InboundMessage, sender_name: str | None) -> None:
     if not text:
         await wa.send_text(sender, "I can only read text messages for now. Send \"menu\" to see what I can do.")
         return
+    if text.lower() in MENU_TRIGGERS:
+        await _track(sender, sender_name, text)
+        await wa.send_menu(sender)
+        return
+    await process_text(sender, sender_name, text, channel="WhatsApp")
 
-    log.info("WhatsApp message from %s: %s", sender, text[:100])
-    await events.whatsapp_received("dm", text, sender, sender_name)
 
+async def _track(sender: str, sender_name: str | None, text: str) -> None:
     try:
         await governance.track_group_member(sender, sender_name)
         if wallet := extract_wallet(text):
@@ -81,15 +86,18 @@ async def handle_message(msg: InboundMessage, sender_name: str | None) -> None:
     except Exception:  # tracking is best-effort; never block the reply
         log.exception("Member tracking failed")
 
-    if text.lower() in MENU_TRIGGERS:
-        await wa.send_menu(sender)
-        return
+
+async def process_text(sender: str, sender_name: str | None, text: str, channel: str) -> None:
+    """Channel-agnostic core: track the member, show the message on the dashboard, run the agent."""
+    log.info("%s message from %s: %s", channel, sender, text[:100])
+    await events.whatsapp_received("dm", text, sender, sender_name, platform=channel)
+    await _track(sender, sender_name, text)
 
     history = _history.setdefault(sender, deque(maxlen=MAX_HISTORY))
     history.append((sender_name or sender, text, time.time()))
 
     member = await governance.get_group_member(sender)
-    info = [f"- WhatsApp ID: {sender}"]
+    info = [f"- Member ID: {sender} ({channel})"]
     if member and member.display_name:
         info.append(f"- Display name: {member.display_name}")
     if member and member.wallet_address:
@@ -104,7 +112,7 @@ async def handle_message(msg: InboundMessage, sender_name: str | None) -> None:
         conversation = f"\n\nRecent conversation with this member (use it for follow-ups):\n{lines}\n---"
 
     trigger = (
-        f'A DAO member sent you this WhatsApp message: "{text}"\n\nSender info:\n'
+        f'A DAO member sent you this {channel} message: "{text}"\n\nSender info:\n'
         + "\n".join(info)
         + conversation
         + "\n\nRespond helpfully. If it's a question, answer it using the available tools. If it's a correction "

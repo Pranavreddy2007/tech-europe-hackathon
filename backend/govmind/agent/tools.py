@@ -16,7 +16,7 @@ from .. import events
 from ..config import get_settings
 from ..schemas import MessageSent, Schema, ToolError
 from ..services import blockchain, chart, governance, knowledge, security, treasury
-from ..whatsapp.client import get_client
+from ..messaging import deliver
 
 
 @dataclass
@@ -318,7 +318,7 @@ class GroupMessageArgs(ToolInput):
 class DirectMessageArgs(ToolInput):
     whatsapp_id: str | None = Field(
         None,
-        description="WhatsApp ID (phone number, digits only) of the recipient. "
+        description="Member ID of the recipient: a WhatsApp number (digits only) or a Telegram id like tg:123. "
         "Omit to reply to the member who sent the current message.",
     )
     text: str = Field(description="The message text to send")
@@ -326,16 +326,13 @@ class DirectMessageArgs(ToolInput):
 
 
 async def _deliver(to: str, text: str, image_url: str | None) -> bool:
-    wa = get_client()
-    if image_url:
-        await wa.send_image(to, image_url)
-    return await wa.send_text(to, text)
+    return await deliver(to, text, image_url)
 
 
 @tool(
     "send_group_message",
-    "Broadcasts a message to the DAO on WhatsApp — every member who has messaged GovMind or registered a "
-    "WhatsApp number, plus any configured broadcast numbers. Use this to post summaries, alerts, answers, and reminders everyone should see.",
+    "Broadcasts a message to the whole DAO on WhatsApp and Telegram — every member who has messaged GovMind or "
+    "registered a number, plus any configured broadcast numbers. Use this to post summaries, alerts, answers, and reminders everyone should see.",
     lambda a: "Broadcasting to DAO members on WhatsApp...",
 )
 async def _broadcast(args: GroupMessageArgs, ctx: RunContext):

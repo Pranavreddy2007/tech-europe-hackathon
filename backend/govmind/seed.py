@@ -152,8 +152,10 @@ async def seed() -> None:
     await init_db()
     async with session_scope() as s:
         for model in (NudgeTracking, Vote, TokenTransfer, TreasuryTransaction, TreasuryBalance, Knowledge,
-                      AgentAction, GroupMember, Proposal, Member):
+                      AgentAction, Proposal, Member):
             await s.execute(delete(model))
+        # Keep real Telegram subscribers across demo resets; drop everyone else.
+        await s.execute(delete(GroupMember).where(GroupMember.whatsapp_id.not_like("tg:%")))
 
         members = [
             Member(address=addr(suffix), display_name=name, token_balance=balance,
