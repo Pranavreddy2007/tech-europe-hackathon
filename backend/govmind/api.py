@@ -35,6 +35,8 @@ from .whatsapp.models import InboundMessage, TextBody, WebhookPayload
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("govmind")
+# httpx logs full request URLs at INFO, and Telegram URLs contain the bot token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 _background: set[asyncio.Task] = set()
 
