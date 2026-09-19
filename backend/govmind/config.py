@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Gemini, via Pydantic AI (direct key, or the Pydantic AI Gateway)
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
+    gemini_thinking_level: str = "low"  # minimal | low | medium | high
     pydantic_ai_gateway_api_key: str = ""
 
     # Database — Postgres in production (e.g. Neon/Supabase), SQLite locally
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     # Server
     public_base_url: str = ""  # used for chart links; inferred from requests if empty
     chart_dir: Path = Path("./public/charts")
+    dashboard_dir: Path | None = None  # static dashboard export to serve at "/"
     scheduled_checks_enabled: bool = False
 
     @field_validator("database_url")

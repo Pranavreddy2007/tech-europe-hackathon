@@ -2,8 +2,7 @@
 
 import { io, Socket } from "socket.io-client";
 import { useDashboardStore, getStepId } from "./store";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+import { backendUrl } from "./backend";
 
 let socket: Socket | null = null;
 let currentRunId: string | null = null;
@@ -12,7 +11,7 @@ export function connectSocket() {
   if (socket?.connected) return;
 
   const store = useDashboardStore.getState();
-  socket = io(BACKEND_URL, { transports: ["websocket", "polling"] });
+  socket = io(backendUrl(), { transports: ["websocket", "polling"] });
 
   socket.on("connect", () => {
     useDashboardStore.getState().setConnected(true);
@@ -67,13 +66,14 @@ export function connectSocket() {
 
   socket.on(
     "whatsapp:message-received",
-    (data: { type: string; text: string; senderUid?: string; timestamp: string }) => {
+    (data: { type: string; text: string; senderUid?: string; senderName?: string; timestamp: string }) => {
       useDashboardStore.getState().addMessage({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: "incoming",
         channel: data.type as "dm" | "group",
         text: data.text,
         senderUid: data.senderUid,
+        senderName: data.senderName,
         timestamp: data.timestamp,
       });
     }
@@ -81,13 +81,22 @@ export function connectSocket() {
 
   socket.on(
     "whatsapp:message-sent",
-    (data: { type: string; text: string; recipientUid?: string; timestamp: string }) => {
+    (data: {
+      type: string;
+      text: string;
+      recipientUid?: string;
+      imageUrl?: string | null;
+      recipientCount?: number;
+      timestamp: string;
+    }) => {
       useDashboardStore.getState().addMessage({
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         type: "outgoing",
         channel: data.type as "dm" | "group",
         text: data.text,
         recipientUid: data.recipientUid,
+        imageUrl: data.imageUrl ?? undefined,
+        recipientCount: data.recipientCount,
         timestamp: data.timestamp,
       });
     }

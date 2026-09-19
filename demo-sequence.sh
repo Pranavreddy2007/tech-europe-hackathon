@@ -3,7 +3,7 @@
 # Run each command when indicated. Practice timing.
 # Usage: bash demo-sequence.sh [backend-url]   (default: http://localhost:8000)
 
-BASE=${1:-http://localhost:8000}
+BASE=${1:-https://driftypencil--govmind-web.modal.run}
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"

@@ -40,10 +40,19 @@ image = (
         "aiosqlite>=0.20",
         "matplotlib>=3.9",
     )
-    .env({"CHAIN_HELPER_DIR": "/root/chain", "CHART_DIR": "/data/charts", "PYDANTIC_AI_NO_BANNER": "1"})
+    .env({
+        "CHAIN_HELPER_DIR": "/root/chain",
+        "CHART_DIR": "/data/charts",
+        "DASHBOARD_DIR": "/root/dashboard",  # served at "/" when the dashboard export is bundled below
+        "PYDANTIC_AI_NO_BANNER": "1",
+    })
     .add_local_file(HERE / "chain" / "endless.mjs", "/root/chain/endless.mjs")
     .add_local_python_source("govmind")
 )
+# Serve the statically exported dashboard from the same URL (build it first: cd dashboard && npm run build).
+DASHBOARD_OUT = HERE.parent / "dashboard" / "out"
+if DASHBOARD_OUT.exists():
+    image = image.add_local_dir(DASHBOARD_OUT, "/root/dashboard")
 
 
 def _use_volume_db_if_unset() -> None:
@@ -57,6 +66,7 @@ def _use_volume_db_if_unset() -> None:
     volumes={"/data": data},
     # One container: Socket.IO dashboard clients and agent runs share in-process state.
     max_containers=1,
+    min_containers=1,  # always warm: no cold start in the middle of a demo
     scaledown_window=15 * 60,
     timeout=10 * 60,
 )

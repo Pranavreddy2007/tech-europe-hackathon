@@ -344,7 +344,7 @@ async def _broadcast(args: GroupMessageArgs, ctx: RunContext):
     if not recipients:
         return ToolError(error="No DAO members are reachable on WhatsApp yet, so there is no one to broadcast to.")
     results = await asyncio.gather(*(_deliver(r, args.text, args.image_url) for r in recipients))
-    await events.whatsapp_sent("group", args.text)
+    await events.whatsapp_sent("group", args.text, image_url=args.image_url, recipient_count=len(recipients))
     return MessageSent(
         sent=any(results),
         channel="group",
@@ -365,7 +365,7 @@ async def _dm(args: DirectMessageArgs, ctx: RunContext):
     if not to:
         return ToolError(error="No recipient WhatsApp ID provided and no active sender context.")
     ok = await _deliver(to, args.text, args.image_url)
-    await events.whatsapp_sent("dm", args.text, to)
+    await events.whatsapp_sent("dm", args.text, to, image_url=args.image_url)
     return MessageSent(sent=ok, channel="dm", text=args.text, recipients=[to] if ok else [], failed=[] if ok else [to])
 
 

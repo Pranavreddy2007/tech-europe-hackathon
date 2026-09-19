@@ -46,8 +46,18 @@ function MessageBubble({ msg }: { msg: WhatsAppMessage }) {
             GovMind
           </span>
         ) : (
-          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 uppercase tracking-wider">
-            {msg.channel === "dm" ? "WhatsApp In" : "Broadcast"}
+          <>
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 uppercase tracking-wider">
+              {msg.channel === "dm" ? "WhatsApp In" : "Broadcast"}
+            </span>
+            {msg.senderName && (
+              <span className="text-[9px] font-semibold text-[var(--text-secondary)]">{msg.senderName}</span>
+            )}
+          </>
+        )}
+        {isOutgoing && msg.channel === "group" && (
+          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300/80 uppercase tracking-wider">
+            Broadcast{msg.recipientCount ? ` → ${msg.recipientCount}` : ""}
           </span>
         )}
         {isOutgoing && msg.channel === "dm" && (
@@ -71,6 +81,14 @@ function MessageBubble({ msg }: { msg: WhatsAppMessage }) {
       >
         {isLong && !expanded ? msg.text.slice(0, 300) + "..." : msg.text}
       </p>
+      {msg.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={msg.imageUrl}
+          alt="Chart sent on WhatsApp"
+          className="mt-2 rounded-md border border-[var(--border-dim)] w-full bg-white"
+        />
+      )}
       {isLong && (
         <button
           onClick={() => setExpanded((v) => !v)}

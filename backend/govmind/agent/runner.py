@@ -8,7 +8,7 @@ from typing import Any
 from pydantic_ai import Agent, Tool, UsageLimits
 from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
 from pydantic_ai.models import Model
-from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 from pydantic_ai.providers.gateway import gateway_provider
 from pydantic_ai.providers.google import GoogleProvider
 
@@ -88,6 +88,10 @@ def build_agent(ctx: RunContext, steps: list[dict], model: Model | None = None) 
         system_prompt=SYSTEM_PROMPT,
         tools=[make(name) for name in TOOLS],
         retries=2,
+        # Lower thinking keeps a full governance run inside ~30s, which the live demo needs.
+        model_settings=GoogleModelSettings(
+            google_thinking_config={"thinking_level": get_settings().gemini_thinking_level}
+        ),
     )
 
 

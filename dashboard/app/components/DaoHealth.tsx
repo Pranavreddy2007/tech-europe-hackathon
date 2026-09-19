@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { backendUrl } from "@/lib/backend";
+import { useDashboardStore } from "@/lib/store";
 
 interface TreasurySummary {
   total_balance_eds: number;
@@ -21,7 +23,6 @@ interface ProposalSummary {
   total_votes: number;
 }
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 function StatCard({
   label,
@@ -159,7 +160,7 @@ export function DaoHealth() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch(`${BACKEND}/api/health`);
+        const res = await fetch(`${backendUrl()}/api/health`);
         if (res.ok) {
           const data = await res.json();
           setTreasury(data.treasury);
@@ -169,7 +170,11 @@ export function DaoHealth() {
     }
     fetchData();
     const id = setInterval(fetchData, 30000);
-    return () => clearInterval(id);
+    window.addEventListener(REFRESH_EVENT, fetchData);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener(REFRESH_EVENT, fetchData);
+    };
   }, []);
 
   const allocationColors = ["var(--accent-emerald)", "var(--accent-cyan)", "var(--accent-blue)", "var(--accent-amber)"];
@@ -278,55 +283,112 @@ export function DaoHealth() {
           )}
         </div>
 
-        <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--bg-card)] p-3">
-          <span className="text-[9px] text-[var(--text-dim)] uppercase tracking-wider">
-            Quick Actions
-          </span>
-          <div className="grid grid-cols-2 gap-1.5 mt-2">
-            {[
-              { label: "Proposal #49", endpoint: "new-proposal", body: { proposal_number: 49 }, color: "hover:border-blue-500/50 hover:text-blue-400" },
-              { label: "Proposal #48", endpoint: "new-proposal", body: { proposal_number: 48 }, color: "hover:border-blue-500/50 hover:text-blue-400" },
-              { label: "Vote Check", endpoint: "vote-check", body: null, color: "hover:border-purple-500/50 hover:text-purple-400" },
-              { label: "Treasury Check", endpoint: "treasury-check", body: null, color: "hover:border-amber-500/50 hover:text-amber-400" },
-              { label: "Attack Scan", endpoint: "attack-check", body: null, color: "hover:border-red-500/50 hover:text-red-400" },
-            ].map((action) => (
-              <button
-                key={action.label}
-                onClick={() =>
-                  fetch(`${BACKEND}/trigger/${action.endpoint}`, {
-                    method: "POST",
-                    headers: action.body ? { "Content-Type": "application/json" } : {},
-                    body: action.body ? JSON.stringify(action.body) : undefined,
-                  })
-                }
-                className={`text-[9px] py-1.5 px-2 rounded-md border border-[var(--border-dim)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors cursor-pointer ${action.color}`}
-              >
-                {action.label}
-              </button>
-            ))}
-            <button
-              onClick={async () => {
-                const triggers = [
-                  { endpoint: "new-proposal", body: { proposal_number: 49 }, delay: 0 },
-                  { endpoint: "vote-check", body: null, delay: 45000 },
-                  { endpoint: "ask", body: { question: "What is our current burn rate and how long will our treasury last?" }, delay: 75000 },
-                  { endpoint: "attack-check", body: null, delay: 105000 },
-                ];
-                for (const t of triggers) {
-                  await new Promise((r) => setTimeout(r, t.delay));
-                  fetch(`${BACKEND}/trigger/${t.endpoint}`, {
-                    method: "POST",
-                    headers: t.body ? { "Content-Type": "application/json" } : {},
-                    body: t.body ? JSON.stringify(t.body) : undefined,
-                  });
-                }
-              }}
-              className="col-span-2 text-[9px] py-2 px-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer font-semibold"
-            >
-              Run Full Demo Sequence
-            </button>
-          </div>
-        </div>
+        <QuickActions />
+      </div>
+    </div>
+  );
+}
+
+const REFRESH_EVENT = "govmind:refresh";
+
+type Trigger = { label: string; endpoint: string; body?: Record<string, unknown> };
+
+const ALICE = { from: "447700900001", name: "Alice Chen" };
+const BOB = { from: "447700900002", name: "Bob Martinez" };
+
+// The 2-minute demo: each step waits for the agent to finish before the next starts.
+const DEMO_STEPS: Trigger[] = [
+  { label: "Alice asks on WhatsApp", endpoint: "whatsapp-demo", body: { ...ALICE, text: "Hey GovMind, is proposal 49 safe to vote for?" } },
+  { label: "Attack scan", endpoint: "attack-check" },
+  { label: "Vote mobilisation", endpoint: "vote-check" },
+  { label: "Bob asks for a chart", endpoint: "whatsapp-demo", body: { ...BOB, text: "What's our treasury runway? Send me a chart." } },
+];
+
+const ACTIONS: (Trigger & { color: string })[] = [
+  { label: "WhatsApp: Is #49 safe?", endpoint: "whatsapp-demo", body: DEMO_STEPS[0].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
+  { label: "WhatsApp: Runway chart", endpoint: "whatsapp-demo", body: DEMO_STEPS[3].body, color: "hover:border-emerald-500/50 hover:text-emerald-400" },
+  { label: "Proposal #49", endpoint: "new-proposal", body: { proposal_number: 49 }, color: "hover:border-blue-500/50 hover:text-blue-400" },
+  { label: "Proposal #48", endpoint: "new-proposal", body: { proposal_number: 48 }, color: "hover:border-blue-500/50 hover:text-blue-400" },
+  { label: "Vote Check", endpoint: "vote-check", color: "hover:border-purple-500/50 hover:text-purple-400" },
+  { label: "Treasury Check", endpoint: "treasury-check", color: "hover:border-amber-500/50 hover:text-amber-400" },
+  { label: "Attack Scan", endpoint: "attack-check", color: "hover:border-red-500/50 hover:text-red-400" },
+];
+
+async function fire(t: Trigger) {
+  try {
+    await fetch(`${backendUrl()}/trigger/${t.endpoint}`, {
+      method: "POST",
+      headers: t.body ? { "Content-Type": "application/json" } : {},
+      body: t.body ? JSON.stringify(t.body) : undefined,
+    });
+  } finally {
+    window.dispatchEvent(new Event(REFRESH_EVENT));
+  }
+}
+
+function QuickActions() {
+  const [busy, setBusy] = useState(false);
+  const [demoStep, setDemoStep] = useState<number | null>(null);
+  const clearAll = useDashboardStore((s) => s.clearAll);
+
+  async function run(t: Trigger) {
+    setBusy(true);
+    try {
+      await fire(t);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runDemo() {
+    setBusy(true);
+    try {
+      for (let i = 0; i < DEMO_STEPS.length; i++) {
+        setDemoStep(i);
+        await fire(DEMO_STEPS[i]);
+        await new Promise((r) => setTimeout(r, 1500)); // let the final graph state land on screen
+      }
+    } finally {
+      setDemoStep(null);
+      setBusy(false);
+    }
+  }
+
+  async function reset() {
+    setBusy(true);
+    try {
+      await fetch(`${backendUrl()}/trigger/reset-demo`, { method: "POST" });
+      clearAll();
+      window.dispatchEvent(new Event(REFRESH_EVENT));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const base =
+    "text-[9px] py-1.5 px-2 rounded-md border border-[var(--border-dim)] bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed";
+
+  return (
+    <div className="rounded-lg border border-[var(--border-dim)] bg-[var(--bg-card)] p-3">
+      <span className="text-[9px] text-[var(--text-dim)] uppercase tracking-wider">Quick Actions</span>
+      <div className="grid grid-cols-2 gap-1.5 mt-2">
+        {ACTIONS.map((action) => (
+          <button key={action.label} disabled={busy} onClick={() => run(action)} className={`${base} ${action.color}`}>
+            {action.label}
+          </button>
+        ))}
+        <button disabled={busy} onClick={reset} className={`${base} hover:border-zinc-400/50 hover:text-zinc-300`}>
+          Reset Demo
+        </button>
+        <button
+          disabled={busy}
+          onClick={runDemo}
+          className="col-span-2 text-[9px] py-2 px-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer font-semibold disabled:cursor-not-allowed"
+        >
+          {demoStep === null
+            ? "Run Full Demo Sequence"
+            : `Demo ${demoStep + 1}/${DEMO_STEPS.length}: ${DEMO_STEPS[demoStep].label}...`}
+        </button>
       </div>
     </div>
   );

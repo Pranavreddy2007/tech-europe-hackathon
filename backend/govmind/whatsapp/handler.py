@@ -28,6 +28,11 @@ _seen: OrderedDict[str, None] = OrderedDict()
 _history: dict[str, deque[tuple[str, str, float]]] = {}
 
 
+def reset_state() -> None:
+    _seen.clear()
+    _history.clear()
+
+
 def _already_seen(message_id: str) -> bool:
     if message_id in _seen:
         return True
@@ -66,7 +71,7 @@ async def handle_message(msg: InboundMessage, sender_name: str | None) -> None:
         return
 
     log.info("WhatsApp message from %s: %s", sender, text[:100])
-    await events.whatsapp_received("dm", text, sender)
+    await events.whatsapp_received("dm", text, sender, sender_name)
 
     try:
         await governance.track_group_member(sender, sender_name)

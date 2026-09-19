@@ -129,10 +129,13 @@ dashboard/                Next.js live dashboard (agent graph, WhatsApp feed, DA
 demo-sequence.sh          Scripted 3-minute demo
 ```
 
-## Live deployment
+## Live demo
 
-- API + webhook: `https://driftypencil--govmind-web.modal.run` (`/api/health`, `/webhook/whatsapp`, `/trigger/*`)
-- Point the dashboard at it: `NEXT_PUBLIC_BACKEND_URL=https://driftypencil--govmind-web.modal.run npm run dev`
+**https://driftypencil--govmind-web.modal.run** serves the dashboard and API from Modal. Click **Reset Demo**, then **Run Full Demo Sequence** (about 2 minutes). Talk track: [DEMO.md](DEMO.md).
+
+Without WhatsApp Cloud API credentials, the app runs in demo mode: outgoing WhatsApp messages are simulated and shown in the live feed, and the demo buttons push member messages through the real inbound pipeline.
+
+To redeploy with the dashboard bundled: `cd dashboard && npm run build && cd ../backend && modal deploy modal_app.py`.
 
 ## Setup
 

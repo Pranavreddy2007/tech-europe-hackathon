@@ -26,7 +26,10 @@ export interface WhatsAppMessage {
   channel: "dm" | "group";
   text: string;
   senderUid?: string;
+  senderName?: string;
   recipientUid?: string;
+  imageUrl?: string;
+  recipientCount?: number;
   timestamp: string;
 }
 
@@ -38,6 +41,7 @@ interface DashboardState {
 
   setConnected: (v: boolean) => void;
   addMessage: (msg: WhatsAppMessage) => void;
+  clearAll: () => void;
 
   startRun: (trigger: string) => string;
   addStep: (runId: string, step: ToolStep) => void;
@@ -59,6 +63,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
   addMessage: (msg) =>
     set((s) => ({ messages: [...s.messages.slice(-100), msg] })),
+
+  clearAll: () => set({ runs: [], activeRunId: null, messages: [] }),
 
   startRun: (trigger) => {
     const id = `run-${++runCounter}`;

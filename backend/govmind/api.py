@@ -6,6 +6,7 @@
 import asyncio
 import logging
 import re
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -13,6 +14,7 @@ import socketio
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 
 from .agent import runner
@@ -22,8 +24,10 @@ from .events import sio
 from .schemas import GroupMemberOut, HealthResponse, WalletLink
 from .services import chart, governance, treasury
 from .whatsapp.client import verify_signature
+from .seed import seed
+from .whatsapp import handler
 from .whatsapp.handler import handle_message
-from .whatsapp.models import WebhookPayload
+from .whatsapp.models import InboundMessage, TextBody, WebhookPayload
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("govmind")
@@ -116,8 +120,8 @@ async def chart_file(name: str):
     return FileResponse(path, media_type="image/png")
 
 
-@app.get("/")
-async def root():
+@app.get("/api/status")
+async def status():
     return {"name": "GovMind", "status": "ok", "webhook": "/webhook/whatsapp", "health": "/api/health"}
 
 
@@ -151,6 +155,12 @@ class CastVoteBody(BaseModel):
     voter_address: str
     vote: Literal["for", "against", "abstain"]
     voting_power: float = 1
+
+
+class WhatsAppDemoBody(BaseModel):
+    from_: str = Field("447700900001", alias="from")
+    name: str = "Alice Chen"
+    text: str
 
 
 class SimulateMembersBody(BaseModel):
@@ -248,6 +258,25 @@ async def trigger_cast_vote(body: CastVoteBody):
     return TriggerResponse(trigger="cast-vote", response=response)
 
 
+@app.post("/trigger/whatsapp-demo", response_model=TriggerResponse)
+async def trigger_whatsapp_demo(body: WhatsAppDemoBody):
+    """Feed a message through the real WhatsApp pipeline, as if a member had sent it."""
+    msg = InboundMessage(
+        id=f"demo.{time.time_ns()}", **{"from": body.from_}, timestamp=str(int(time.time())), type="text",
+        text=TextBody(body=body.text),
+    )
+    await handle_message(msg, body.name)
+    return TriggerResponse(trigger="whatsapp-demo", response="handled")
+
+
+@app.post("/trigger/reset-demo")
+async def trigger_reset_demo():
+    """Reload the MetaDAO demo data and forget WhatsApp conversation history."""
+    await seed()
+    handler.reset_state()
+    return {"reset": True}
+
+
 @app.post("/trigger/simulate-members", response_model=list[GroupMemberOut])
 async def trigger_simulate_members(body: SimulateMembersBody | None = None):
     """Seed fake WhatsApp members for demos (these numbers won't receive real messages)."""
@@ -274,5 +303,10 @@ async def _unhandled(request: Request, exc: Exception):
     log.exception("Unhandled error on %s", request.url.path)
     return Response(status_code=500, content='{"error":"internal error"}', media_type="application/json")
 
+
+# The statically exported dashboard, when bundled alongside the API (e.g. on Modal).
+_dashboard = get_settings().dashboard_dir
+if _dashboard and (_dashboard / "index.html").exists():
+    app.mount("/", StaticFiles(directory=_dashboard, html=True), name="dashboard")
 
 asgi_app = socketio.ASGIApp(sio, other_asgi_app=app)

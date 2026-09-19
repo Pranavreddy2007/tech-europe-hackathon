@@ -11,6 +11,7 @@ from sqlalchemy import delete
 
 from .db import (
     AgentAction,
+    GroupMember,
     Knowledge,
     Member,
     NudgeTracking,
@@ -146,10 +147,12 @@ TREASURY_TXS = [
 
 
 async def seed() -> None:
+    global NOW
+    NOW = utcnow()  # recomputed per call so an in-app demo reset gets fresh relative dates
     await init_db()
     async with session_scope() as s:
         for model in (NudgeTracking, Vote, TokenTransfer, TreasuryTransaction, TreasuryBalance, Knowledge,
-                      AgentAction, Proposal, Member):
+                      AgentAction, GroupMember, Proposal, Member):
             await s.execute(delete(model))
 
         members = [
@@ -229,8 +232,12 @@ async def seed() -> None:
 
     print(f"Seeded {len(members)} members, {len(proposals)} proposals, {len(votes)} votes, "
           f"{len(TREASURY_TXS)} treasury transactions, {len(transfers)} token transfers.")
+
+
+async def _main() -> None:
+    await seed()
     await engine.dispose()
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    asyncio.run(_main())

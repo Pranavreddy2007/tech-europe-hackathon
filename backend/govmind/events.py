@@ -54,13 +54,24 @@ async def agent_error(error: str) -> None:
     await sio.emit("agent:error", {"error": error, "timestamp": _now()})
 
 
-async def whatsapp_received(channel: str, text: str, sender: str | None = None) -> None:
+async def whatsapp_received(channel: str, text: str, sender: str | None = None, name: str | None = None) -> None:
     await sio.emit(
-        "whatsapp:message-received", {"type": channel, "text": text, "senderUid": sender, "timestamp": _now()}
+        "whatsapp:message-received",
+        {"type": channel, "text": text, "senderUid": sender, "senderName": name, "timestamp": _now()},
     )
 
 
-async def whatsapp_sent(channel: str, text: str, recipient: str | None = None) -> None:
+async def whatsapp_sent(
+    channel: str, text: str, recipient: str | None = None, image_url: str | None = None, recipient_count: int = 1
+) -> None:
     await sio.emit(
-        "whatsapp:message-sent", {"type": channel, "text": text, "recipientUid": recipient, "timestamp": _now()}
+        "whatsapp:message-sent",
+        {
+            "type": channel,
+            "text": text,
+            "recipientUid": recipient,
+            "imageUrl": image_url,
+            "recipientCount": recipient_count,
+            "timestamp": _now(),
+        },
     )
