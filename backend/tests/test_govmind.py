@@ -310,10 +310,11 @@ async def test_telegram_group_like_luffa(monkeypatch):
     # Asked from the group: the answer goes to that group only.
     assert await tools.broadcast_recipients(tools.RunContext(sender_id="tg:888", group_id="tg:-100555")) == [
         "tg:-100555"]
-    # A dashboard/scheduled alert: the group, plus subscribers who aren't in it (777 is, so no duplicate).
+    # A dashboard/scheduled alert: the group AND every private subscriber, even ones who are in the group,
+    # so each subscriber gets a personal notification.
     await state.add_to_list(state.TELEGRAM_SUBSCRIBERS, "tg:999")
     recipients = await tools.broadcast_recipients(tools.RunContext())
-    assert recipients[0] == "tg:-100555" and "tg:999" in recipients and "tg:777" not in recipients
+    assert recipients[0] == "tg:-100555" and "tg:999" in recipients and "tg:777" in recipients
 
 
 def test_pages_are_never_cached_but_hashed_assets_are(tmp_path, monkeypatch):

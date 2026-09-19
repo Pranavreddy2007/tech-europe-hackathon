@@ -138,7 +138,7 @@ The prompt carries over the procedures from the original GovMind, adapted for Te
 Messaging routes by member id: `tg:<id>` → Telegram, digits → WhatsApp (`messaging.py`). `send_group_message` computes its recipients with `broadcast_recipients()`:
 
 - triggered from a Telegram group → **that group only**;
-- otherwise → every Telegram group GovMind is in, plus private Telegram subscribers who are **not** members of those groups (checked with `getChatMember`, so nobody gets an alert twice), plus the WhatsApp list.
+- otherwise (alerts, briefings, scans) → every Telegram group GovMind is in, **and** every private Telegram subscriber (anyone who tapped Start), so each subscriber gets a personal notification even if they're also in the group, plus the WhatsApp list.
 
 ## 3. How Pydantic is used
 
@@ -224,7 +224,7 @@ The original GovMind lived in a Luffa group chat. The Telegram design keeps that
 | Answers in the group | Group messages run the agent with `group_id`; `send_group_message` posts back to that group |
 | Knows the members | Senders, new members and text mentions are tracked as `tg:<user id>` in `group_members` |
 | Wallet linking | Hex or Base58 addresses near "wallet/address/link" are linked automatically |
-| Private alerts | `/start` subscribes a private chat; alerts reach subscribers who aren't in the group |
+| Private alerts | `/start` subscribes a private chat; every alert also arrives there as a personal notification |
 | Quick commands | Reply keyboard: Is proposal 49 safe? · Run attack scan · Treasury status · Who hasn't voted? · Link wallet · Check my EDS balance |
 | Formatting | Messages are sent with Telegram Markdown and retried as plain text if the markup is rejected |
 | Authentication | `setWebhook` with `secret_token`; requests without the matching `X-Telegram-Bot-Api-Secret-Token` get `401` |
@@ -310,7 +310,7 @@ With Gemini's default thinking level, the same runs took 25–90 s. `low` was ch
 - All 24 tool schemas valid, and argument validation rejecting bad input.
 - WhatsApp webhook verification, HMAC signatures, payload parsing, interactive replies, wallet extraction.
 - Telegram webhook secret, `/start` subscription, alert delivery to subscribers, demo reset keeping subscribers.
-- Telegram groups: learning a group, answering in the group, no duplicate alerts for group members.
+- Telegram groups: learning a group, answering in the group, alerts reaching both the group and private subscribers.
 - Page cache headers.
 - The agent loop driven by Pydantic AI's `FunctionModel`: parallel tool calls, results fed back, events emitted, and errors returned to the model. No API key is needed.
 

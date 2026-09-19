@@ -97,7 +97,7 @@ flowchart LR
 1. A **trigger** arrives: a Telegram or WhatsApp message, a dashboard button, a newly submitted proposal, or the daily cron sweep.
 2. The runner builds a **Pydantic AI `Agent`** with GovMind's system prompt, Gemini, and 24 tools. Each tool's arguments are a **Pydantic model**: its JSON schema is what Gemini sees, and the same model validates Gemini's arguments before the tool runs.
 3. The runner steps the agent with `agent.iter()`. Each tool call and result is pushed to the dashboard over **Socket.IO**, which lights up nodes and draws edges in the live graph.
-4. The agent posts its answer, brief or alert to the **Telegram group** (and to subscribers who aren't in it), and the run completes on the dashboard.
+4. The agent posts its answer, brief or alert to the **Telegram group** and to every member who subscribed in a private chat, and the run completes on the dashboard.
 
 Full details, with diagrams: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and the **[architecture PDF](docs/GovMind-Architecture.pdf)**.
 
@@ -222,7 +222,7 @@ modal run modal_app.py::seed                      # demo data onto the volume
 cd backend && pytest
 ```
 
-16 tests cover the domain services against the seeded data, read-only SQL enforcement, tool-schema validity and argument validation, WhatsApp and Telegram webhook parsing and authentication, Telegram group learning and alert fan-out (including no duplicate alerts), cache headers, and the agent loop driven by a scripted Pydantic AI `FunctionModel` (no API key needed). The dashboard is type-checked with `npx tsc --noEmit` and built with `npm run build`.
+16 tests cover the domain services against the seeded data, read-only SQL enforcement, tool-schema validity and argument validation, WhatsApp and Telegram webhook parsing and authentication, Telegram group learning and alert fan-out (group plus private subscribers), cache headers, and the agent loop driven by a scripted Pydantic AI `FunctionModel` (no API key needed). The dashboard is type-checked with `npx tsc --noEmit` and built with `npm run build`.
 
 ## Repository layout
 

@@ -93,13 +93,6 @@ class TelegramClient:
         except httpx.HTTPError:
             return None
 
-    async def is_member(self, group: str, user: str) -> bool:
-        """True if the user is in the group chat (so a group post already notifies them)."""
-        result = await self._get(
-            "getChatMember", {"chat_id": group.removeprefix(PREFIX), "user_id": int(user.removeprefix(PREFIX))}
-        )
-        return bool(result) and result.get("status") in ("creator", "administrator", "member", "restricted")
-
     async def bot_username(self) -> str | None:
         result = await self._get("getMe", {})
         return result.get("username") if result else None

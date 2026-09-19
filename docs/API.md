@@ -363,6 +363,6 @@ Records what the agent did and why. Call this as the LAST step of every action f
 | API | Used for | Where |
 |---|---|---|
 | **Google Gemini** (via Pydantic AI `GoogleModel`) | The agent's reasoning and function calling | `agent/runner.py` |
-| **Telegram Bot API**: `sendMessage`, `sendPhoto`, `sendChatAction`, `getChatMember`, `getMe`, `setWebhook`, `setChatMenuButton` | Replies, group posts, alerts, charts, typing indicator, duplicate-alert check, webhook setup | `telegram/client.py` |
+| **Telegram Bot API**: `sendMessage`, `sendPhoto`, `sendChatAction`, `getMe`, `setWebhook`, `setChatMenuButton` | Replies, group posts, alerts, charts, typing indicator, webhook setup | `telegram/client.py` |
 | **WhatsApp Cloud API** (Graph API `/{phone_number_id}/messages`) | Text, image and interactive list messages, read receipts | `whatsapp/client.py` |
 | **Endless Chain** (TypeScript SDK → Endless REST RPC) | EDS balances, EDS transfers, on-chain audit records, testnet faucet | `chain/endless.mjs`, `services/blockchain.py` |

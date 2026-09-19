@@ -335,22 +335,17 @@ async def _deliver(to: str, text: str, image_url: str | None) -> bool:
 async def broadcast_recipients(ctx: RunContext) -> list[str]:
     """Where a group message goes.
 
-    Triggered from a Telegram group: that group only (like the original Luffa bot answering in its group).
-    Otherwise: every Telegram group GovMind is in, private Telegram subscribers who aren't already in one of
-    those groups (so nobody gets the alert twice), and the WhatsApp broadcast list.
+    Triggered from a Telegram group: that group only (a question asked in the group is answered there).
+    Otherwise (alerts, briefings, scans): every Telegram group GovMind is in, AND every private Telegram
+    subscriber (anyone who tapped Start), so each subscriber gets a personal notification even if they're
+    also in the group, plus the WhatsApp broadcast list.
     """
     if ctx.group_id:
         return [ctx.group_id]
     groups = await state.telegram_groups()
     subscribers = await state.get_list(state.TELEGRAM_SUBSCRIBERS)
-    tg = telegram.get_client()
-    solo = []
-    for sub in subscribers:
-        in_group = await asyncio.gather(*(tg.is_member(g, sub) for g in groups)) if groups else []
-        if not any(in_group):
-            solo.append(sub)
     whatsapp = [m for m in await governance.get_broadcast_list() if not m.startswith("tg:")]
-    return list(dict.fromkeys(groups + solo + whatsapp + get_settings().broadcast_numbers))
+    return list(dict.fromkeys(groups + subscribers + whatsapp + get_settings().broadcast_numbers))
 
 
 @tool(

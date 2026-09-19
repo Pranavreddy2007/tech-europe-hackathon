@@ -42,7 +42,7 @@ Every framework, API, service and tool GovMind uses: what it is, why it was chos
 
 | Service | Role | Where |
 |---|---|---|
-| [Telegram Bot API](https://core.telegram.org/bots/api) | Primary channel. Webhook with secret token, DAO group chat, private chats, reply keyboard, chart photos, typing indicator, `getChatMember` for duplicate-free alerts | `telegram/` |
+| [Telegram Bot API](https://core.telegram.org/bots/api) | Primary channel. Webhook with secret token, DAO group chat, private chats, reply keyboard, chart photos, typing indicator, alerts to the group and to every private subscriber | `telegram/` |
 | [WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) (Meta Graph API v21.0) | Secondary channel. Signed webhook, text/image/interactive list messages, read receipts; demo mode without credentials | `whatsapp/` |
 
 ## Blockchain
