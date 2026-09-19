@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GovMind dashboard
 
-## Getting Started
+Real-time observability for the GovMind agent: a live graph of every tool call, the message feed (Telegram / WhatsApp), DAO health, and demo controls.
 
-First, run the development server:
+## Run locally
+
+Start the backend first (see the [main README](../README.md#quick-start-local-5-minutes)), then:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000 → talks to the backend at http://localhost:8000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `NEXT_PUBLIC_BACKEND_URL` to use a different backend, for example the live one:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+NEXT_PUBLIC_BACKEND_URL=https://driftypencil--govmind-web.modal.run npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Build
 
-## Learn More
+```bash
+npm run build      # static export to ./out (bundled into the Modal image and served at "/")
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Path | Purpose |
+|---|---|
+| `app/page.tsx` | Three-panel layout |
+| `app/components/LiveFeed.tsx` | Incoming and outgoing messages, with chart images |
+| `app/components/AgentWorkspace.tsx` | The agent neural graph: 24 tool nodes, traversal paths, response panel, run tabs |
+| `app/components/DaoHealth.tsx` | Treasury, allocation, proposals, quick actions, **Run Full Demo Sequence**, **Reset Demo** |
+| `lib/socket.ts` | Socket.IO client: maps `agent:*` and `whatsapp:*` events into the store |
+| `lib/store.ts` | Zustand store: runs, steps, messages |
+| `lib/backend.ts` | Backend URL (same origin when served by the backend) |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Event payloads are documented in [docs/API.md](../docs/API.md#4-socketio-events).
