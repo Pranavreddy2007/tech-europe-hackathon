@@ -76,7 +76,7 @@ async def lifespan(_: FastAPI):
         base = s.public_base_url.rstrip("/")
         ok = await telegram.get_client().set_webhook(f"{base}/webhook/telegram")
         log.info("Telegram webhook %s", "registered" if ok else "registration FAILED")
-        await telegram.get_client().set_menu_button(f"{base}/miniapp/")
+        await telegram.get_client().reset_menu_button()
     log.info(
         "GovMind ready — model=%s whatsapp=%s telegram=%s",
         s.gemini_model, "on" if s.whatsapp_enabled else "demo", "on" if s.telegram_bot_token else "off",
@@ -91,7 +91,15 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 @app.middleware("http")
 async def _remember_base_url(request: Request, call_next):
     chart.remember_base_url(str(request.base_url))
-    return await call_next(request)
+    response = await call_next(request)
+    # The dashboard's JS/CSS filenames are content-hashed, so they can be cached forever. Pages must never be
+    # cached: a stale page points at JS files from an older deploy, and the dashboard loads dead (no clicks).
+    path = request.url.path
+    if path.startswith("/_next/static/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif not path.startswith(("/api/", "/trigger/", "/webhook/", "/socket.io")):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
 
 
 # ─── WhatsApp webhook ────────────────────────────────────────────────────

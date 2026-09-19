@@ -2,7 +2,7 @@
 
 **Open:** https://driftypencil--govmind-web.modal.run (dashboard + API on Modal, always warm)
 
-**On your phone:** open [@GovMind_bot](https://t.me/GovMind_bot) and tap **Start** once. For the full Luffa-style experience, add the bot to a Telegram group (your "DAO chat"): alerts post there and members can ask it questions in the group. Tap the bot's **GovMind** menu button to open the Mini App (DAO Health, live Agent graph, chat), a good thing to show on a phone. From then on every alert the agent broadcasts, such as attack scans and flagged proposals, arrives as a push notification. Reset Demo keeps you subscribed.
+**On your phone:** open [@GovMind_bot](https://t.me/GovMind_bot) and tap **Start** once. For the full Luffa-style experience, add the bot to a Telegram group (your "DAO chat"): alerts post there and members can ask it questions in the group. From then on every alert the agent broadcasts, such as attack scans and flagged proposals, arrives as a push notification. Reset Demo keeps you subscribed.
 
 **Before you start:** click **Reset Demo** (bottom right). The feed and graph clear and the MetaDAO data reloads.
 

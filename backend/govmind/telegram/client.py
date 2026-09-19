@@ -115,12 +115,9 @@ class TelegramClient:
             },
         )
 
-    async def set_menu_button(self, web_app_url: str) -> bool:
-        """The bot's menu button opens the GovMind Mini App (the Telegram counterpart of the Luffa mini app)."""
-        return await self._call(
-            "setChatMenuButton",
-            {"menu_button": {"type": "web_app", "text": "GovMind", "web_app": {"url": web_app_url}}},
-        )
+    async def reset_menu_button(self) -> bool:
+        """Plain command menu (/start, /help) for the bot's menu button."""
+        return await self._call("setChatMenuButton", {"menu_button": {"type": "commands"}})
 
 
 _client: TelegramClient | None = None

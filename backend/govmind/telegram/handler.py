@@ -19,8 +19,7 @@ WELCOME = (
     "👋 Hi {name}, I'm GovMind, the governance operator for MetaDAO.\n\n"
     "You're now subscribed to DAO alerts: I'll message you here when I detect a governance attack, "
     "a suspicious proposal, or a treasury risk.\n\n"
-    "Ask me anything about proposals, votes or the treasury, tap a button below, or open the "
-    "GovMind app from the menu button."
+    "Ask me anything about proposals, votes or the treasury, or tap a button below."
 )
 
 GROUP_WELCOME = (

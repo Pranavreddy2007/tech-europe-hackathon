@@ -314,3 +314,12 @@ async def test_telegram_group_like_luffa(monkeypatch):
     await state.add_to_list(state.TELEGRAM_SUBSCRIBERS, "tg:999")
     recipients = await tools.broadcast_recipients(tools.RunContext())
     assert recipients[0] == "tg:-100555" and "tg:999" in recipients and "tg:777" not in recipients
+
+
+def test_pages_are_never_cached_but_hashed_assets_are(tmp_path, monkeypatch):
+    """A cached page from an old deploy points at deleted JS and loads dead; pages must revalidate."""
+    with TestClient(app) as client:
+        r = client.get("/api/status")
+        assert "no-store" not in r.headers.get("cache-control", "")
+        r = client.get("/charts/chart_1.png")  # a page-level path (404 here), still must not be cached
+        assert "no-store" in r.headers["cache-control"]

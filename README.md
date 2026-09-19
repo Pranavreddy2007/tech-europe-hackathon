@@ -143,21 +143,20 @@ To redeploy (builds the dashboard, then a clean cutover on Modal): `backend/depl
 
 📄 **How it all works:** [docs/GovMind-Architecture.pdf](docs/GovMind-Architecture.pdf) covers the agent loop, how Modal and Pydantic are used, and the Telegram design.
 
-The original GovMind lived in a Luffa group chat with a Luffa mini app. This version does the same on Telegram (bot: [@GovMind_bot](https://t.me/GovMind_bot)):
+The original GovMind lived in a Luffa group chat. This version does the same on Telegram (bot: [@GovMind_bot](https://t.me/GovMind_bot)):
 
 | Original (Luffa) | Now (Telegram) |
 |---|---|
 | Bot inside the DAO group chat | Add @GovMind_bot to your DAO group. It learns the group, posts briefings and alerts there, and answers questions asked in the group |
 | Tracks group members, @mentions, auto-links wallets | Same, for Telegram members |
 | Quick-chat buttons | Keyboard: Is proposal 49 safe? · Run attack scan · Treasury status · Who hasn't voted? · Link wallet · Check my EDS balance |
-| Luffa mini app (DAO Health, Agent graph, floating chat) | **Telegram Mini App**, opened from the bot's menu button: DAO Health, live Agent graph, Feed, floating chat |
 | DM nudges | Private messages to members who started the bot |
 
 Alerts go to the DAO group, plus private subscribers who aren't in the group (checked with `getChatMember`, so nobody gets duplicates).
 
 Setup:
 1. In Telegram, message **@BotFather**, send `/newbot`, and copy the token. So the bot can read every group message (like the Luffa bot did), send `/setprivacy` → Disable. Otherwise it only sees mentions and replies.
-2. Add `TELEGRAM_BOT_TOKEN=<token>` and `PUBLIC_BASE_URL=<your modal url>` to the `govmind-secrets` Modal secret and deploy. On startup the webhook and the Mini App menu button register themselves.
+2. Add `TELEGRAM_BOT_TOKEN=<token>` and `PUBLIC_BASE_URL=<your modal url>` to the `govmind-secrets` Modal secret and deploy. On startup the webhook registers itself.
 3. Tap **Start** in a private chat to subscribe to alerts, and/or add the bot to your DAO group.
 
 ## Setup
