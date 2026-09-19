@@ -1,0 +1,9 @@
+{
+  "name": "govmind-chain",
+  "private": true,
+  "type": "module",
+  "description": "Endless Chain signer used by the Python backend",
+  "dependencies": {
+    "@endlesslab/endless-ts-sdk": "^1.0.7"
+  }
+}
