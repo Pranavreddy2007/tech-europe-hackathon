@@ -2,7 +2,8 @@
   <img src="https://img.shields.io/badge/Tech_Europe-Hackathon-blueviolet?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Channel-WhatsApp-25D366?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Runs_on-Modal-7FEE64?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Typed_with-Pydantic-E92063?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Agent-Pydantic_AI-E92063?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Model-Gemini-4285F4?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Chain-Endless-purple?style=for-the-badge" />
 </p>
 
@@ -10,7 +11,7 @@
 <h3 align="center">Autonomous AI Governance Operator for DAOs, on WhatsApp</h3>
 
 <p align="center">
-  <em>One Claude agent. Twenty-four tools. Four capabilities. Real on-chain operations on Endless Chain.<br/>
+  <em>One Gemini agent. Twenty-four tools. Four capabilities. Real on-chain operations on Endless Chain.<br/>
   Lives where your members already are: WhatsApp.</em>
 </p>
 
@@ -31,7 +32,7 @@ Snapshot and Tally handle voting mechanics, Dune needs SQL, and Discord bots jus
 
 ## How it works
 
-GovMind is **one autonomous Claude agent** with **24 tools**. Members message a WhatsApp number; Meta's Cloud API delivers each message to a webhook on **Modal**; the agent investigates with its tools and replies on WhatsApp. It also runs Endless Chain transactions and streams every step to a live dashboard.
+GovMind is **one autonomous Pydantic AI agent on Gemini** with **24 tools**. Members message a WhatsApp number; Meta's Cloud API delivers each message to a webhook on **Modal**; the agent investigates with its tools and replies on WhatsApp. It also runs Endless Chain transactions and streams every step to a live dashboard.
 
 ```mermaid
 flowchart LR
@@ -41,7 +42,7 @@ flowchart LR
 
     subgraph MODAL["Modal (serverless)"]
         HOOK["FastAPI webhook<br/>/webhook/whatsapp"]
-        AGENT["Claude agent loop<br/>24 Pydantic-typed tools"]
+        AGENT["Pydantic AI agent · Gemini<br/>24 Pydantic-typed tools"]
         CRON["modal.Cron<br/>daily attack + vote sweep"]
         VOL[("Modal Volume<br/>charts")]
     end
@@ -93,8 +94,9 @@ Governance actions such as creating a proposal or casting a vote are also writte
 - The image bundles Node so the Endless TypeScript SDK can sign transactions.
 
 **Pydantic**
-- **Tools** ([`agent/tools.py`](backend/govmind/agent/tools.py)): each of the 24 tools is a Pydantic model. Its JSON schema is what Claude sees, and the same model validates Claude's input before the tool runs.
-- **Results** ([`schemas.py`](backend/govmind/schemas.py)): every service returns a typed model. Claude and the REST API see the same shape.
+- **Agent** ([`agent/runner.py`](backend/govmind/agent/runner.py)): a **Pydantic AI** `Agent` on Gemini. The run is stepped with `agent.iter()` and every tool call and result is streamed to the dashboard, which drives the graph animation.
+- **Tools** ([`agent/tools.py`](backend/govmind/agent/tools.py)): each of the 24 tools is a Pydantic model. Its JSON schema is what Gemini sees, and the same model validates Gemini's input before the tool runs.
+- **Results** ([`schemas.py`](backend/govmind/schemas.py)): every service returns a typed model. Gemini and the REST API see the same shape.
 - **WhatsApp webhook** ([`whatsapp/models.py`](backend/govmind/whatsapp/models.py)): Meta's payloads are parsed into typed models, with HMAC signature checks.
 - **Config** ([`config.py`](backend/govmind/config.py)): `pydantic-settings` reads env vars or the Modal secret.
 
@@ -116,7 +118,7 @@ backend/
   modal_app.py            Modal app: web endpoint, seed job, daily cron
   govmind/
     api.py                FastAPI routes: WhatsApp webhook, /api, /trigger, /charts
-    agent/                Claude tool loop, system prompt, Pydantic tools
+    agent/                Pydantic AI agent (Gemini), system prompt, Pydantic tools
     whatsapp/             Cloud API client, webhook models, message handler
     services/             governance, treasury, security, knowledge, charts, chain
     db.py  schemas.py     SQLAlchemy tables + Pydantic result models
@@ -126,6 +128,11 @@ backend/
 dashboard/                Next.js live dashboard (agent graph, WhatsApp feed, DAO health)
 demo-sequence.sh          Scripted 3-minute demo
 ```
+
+## Live deployment
+
+- API + webhook: `https://driftypencil--govmind-web.modal.run` (`/api/health`, `/webhook/whatsapp`, `/trigger/*`)
+- Point the dashboard at it: `NEXT_PUBLIC_BACKEND_URL=https://driftypencil--govmind-web.modal.run npm run dev`
 
 ## Setup
 
@@ -142,7 +149,7 @@ demo-sequence.sh          Scripted 3-minute demo
 cd backend
 pip install modal && modal setup
 modal secret create govmind-secrets \
-  ANTHROPIC_API_KEY=sk-ant-... \
+  GEMINI_API_KEY=... GEMINI_MODEL=gemini-3.5-flash \
   WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... \
   WHATSAPP_VERIFY_TOKEN=pick-any-string WHATSAPP_APP_SECRET=... \
   DATABASE_URL=postgresql://user:pass@host/db \
@@ -192,7 +199,7 @@ Or drive the demo from the dashboard's Quick Actions, or with `bash demo-sequenc
 
 | Layer | Tech |
 |---|---|
-| Agent | Claude (`claude-opus-5` by default, set via `ANTHROPIC_MODEL`), Anthropic Python SDK, manual tool loop with parallel tool calls |
+| Agent | Pydantic AI + Google Gemini (`gemini-3.5-flash` by default, set via `GEMINI_MODEL`); optional Pydantic AI Gateway via `PYDANTIC_AI_GATEWAY_API_KEY` |
 | Runtime | Modal (ASGI web endpoint, Cron, Volume, Secrets) |
 | API | FastAPI, python-socketio |
 | Typing | Pydantic v2, pydantic-settings |

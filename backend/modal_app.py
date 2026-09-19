@@ -1,6 +1,6 @@
 """Deploy GovMind to Modal.
 
-    modal secret create govmind-secrets ANTHROPIC_API_KEY=... WHATSAPP_ACCESS_TOKEN=... \
+    modal secret create govmind-secrets GEMINI_API_KEY=... WHATSAPP_ACCESS_TOKEN=... \
         WHATSAPP_PHONE_NUMBER_ID=... WHATSAPP_VERIFY_TOKEN=... WHATSAPP_APP_SECRET=... \
         DATABASE_URL=postgresql://... ENDLESS_PRIVATE_KEY=...
     modal run modal_app.py::seed      # load the MetaDAO demo data
@@ -29,7 +29,7 @@ image = (
     .add_local_file(HERE / "chain" / "package.json", "/root/chain/package.json", copy=True)
     .run_commands("cd /root/chain && npm install --omit=dev")
     .uv_pip_install(
-        "anthropic>=1.7",
+        "pydantic-ai-slim[google]>=1.0",
         "fastapi>=0.115",
         "pydantic>=2.8",
         "pydantic-settings>=2.4",
@@ -40,7 +40,7 @@ image = (
         "aiosqlite>=0.20",
         "matplotlib>=3.9",
     )
-    .env({"CHAIN_HELPER_DIR": "/root/chain", "CHART_DIR": "/data/charts"})
+    .env({"CHAIN_HELPER_DIR": "/root/chain", "CHART_DIR": "/data/charts", "PYDANTIC_AI_NO_BANNER": "1"})
     .add_local_file(HERE / "chain" / "endless.mjs", "/root/chain/endless.mjs")
     .add_local_python_source("govmind")
 )

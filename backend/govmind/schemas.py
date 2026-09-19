@@ -1,7 +1,7 @@
 """Pydantic models for everything the services return.
 
 Services hand these back to the agent (serialised with `model_dump(mode="json")`)
-and to the REST API, so the shape Claude sees and the shape the dashboard sees
+and to the REST API, so the shape Gemini sees and the shape the dashboard sees
 come from one definition.
 """
 

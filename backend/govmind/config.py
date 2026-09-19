@@ -10,9 +10,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Anthropic
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-opus-5"
+    # Gemini, via Pydantic AI (direct key, or the Pydantic AI Gateway)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash"
+    pydantic_ai_gateway_api_key: str = ""
 
     # Database — Postgres in production (e.g. Neon/Supabase), SQLite locally
     database_url: str = "sqlite+aiosqlite:///./govmind.db"

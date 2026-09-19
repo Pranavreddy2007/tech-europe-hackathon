@@ -181,6 +181,14 @@ async def get_group_members() -> list[GroupMemberOut]:
         return [GroupMemberOut.model_validate(r) for r in rows]
 
 
+async def get_broadcast_list() -> list[str]:
+    """Everyone reachable on WhatsApp: people who messaged GovMind plus registered members with a number."""
+    async with session_scope() as s:
+        tracked = (await s.scalars(select(GroupMember.whatsapp_id))).all()
+        registered = (await s.scalars(select(Member.whatsapp_id).where(Member.whatsapp_id.is_not(None)))).all()
+    return list(dict.fromkeys([*tracked, *registered]))
+
+
 async def get_group_member(whatsapp_id: str) -> GroupMemberOut | None:
     async with session_scope() as s:
         gm = await s.scalar(select(GroupMember).where(GroupMember.whatsapp_id == whatsapp_id))

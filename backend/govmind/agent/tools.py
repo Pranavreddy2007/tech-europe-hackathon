@@ -1,8 +1,8 @@
 """GovMind's 24 tools.
 
 Every tool is a Pydantic input model plus an async handler. The model is the
-single source of truth: its JSON schema is what Claude sees, and the same model
-validates whatever Claude sends back before the handler runs.
+single source of truth: its JSON schema is what Gemini sees, and the same model
+validates whatever Gemini sends back before the handler runs.
 """
 
 import asyncio
@@ -38,9 +38,8 @@ class Tool:
     handler: Callable[[Any, RunContext], Awaitable[Any]]
     describe: Callable[[Any], str]
 
-    def to_anthropic(self) -> dict:
-        schema = self.input_model.model_json_schema()
-        return {"name": self.name, "description": self.description, "input_schema": _strip_titles(schema)}
+    def json_schema(self) -> dict:
+        return _strip_titles(self.input_model.model_json_schema())
 
 
 def _strip_titles(node: Any) -> Any:
@@ -335,15 +334,15 @@ async def _deliver(to: str, text: str, image_url: str | None) -> bool:
 
 @tool(
     "send_group_message",
-    "Broadcasts a message to the DAO on WhatsApp — every member who has messaged GovMind, plus any configured "
-    "broadcast numbers. Use this to post summaries, alerts, answers, and reminders everyone should see.",
+    "Broadcasts a message to the DAO on WhatsApp — every member who has messaged GovMind or registered a "
+    "WhatsApp number, plus any configured broadcast numbers. Use this to post summaries, alerts, answers, and reminders everyone should see.",
     lambda a: "Broadcasting to DAO members on WhatsApp...",
 )
 async def _broadcast(args: GroupMessageArgs, ctx: RunContext):
-    members = await governance.get_group_members()
-    recipients = list(dict.fromkeys([m.whatsapp_id for m in members] + get_settings().broadcast_numbers))
+    recipients = await governance.get_broadcast_list()
+    recipients = list(dict.fromkeys(recipients + get_settings().broadcast_numbers))
     if not recipients:
-        return ToolError(error="Nobody has messaged GovMind on WhatsApp yet, so there is no one to broadcast to.")
+        return ToolError(error="No DAO members are reachable on WhatsApp yet, so there is no one to broadcast to.")
     results = await asyncio.gather(*(_deliver(r, args.text, args.image_url) for r in recipients))
     await events.whatsapp_sent("group", args.text)
     return MessageSent(
@@ -492,8 +491,6 @@ async def _record(args: RecordArgs, ctx: RunContext):
 
 
 # ─── Dispatch ────────────────────────────────────────────────────────────
-
-ANTHROPIC_TOOLS = [t.to_anthropic() for t in TOOLS.values()]
 
 
 def to_jsonable(result: Any) -> Any:

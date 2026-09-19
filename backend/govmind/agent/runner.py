@@ -1,35 +1,46 @@
-"""The GovMind agent loop: Claude + 24 tools, streamed to the dashboard."""
+"""The GovMind agent loop: a Pydantic AI agent on Gemini with 24 tools, streamed to the dashboard."""
 
 import asyncio
 import json
 import logging
-import time
 from typing import Any
 
-import anthropic
+from pydantic_ai import Agent, Tool, UsageLimits
+from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
+from pydantic_ai.models import Model
+from pydantic_ai.models.google import GoogleModel
+from pydantic_ai.providers.gateway import gateway_provider
+from pydantic_ai.providers.google import GoogleProvider
 
 from .. import events
 from ..config import get_settings
 from .prompt import SYSTEM_PROMPT
-from .tools import ANTHROPIC_TOOLS, RunContext, execute
+from .tools import TOOLS, RunContext, execute
 
 log = logging.getLogger(__name__)
 
-MAX_ITERATIONS = 15
-TIMEOUT_S = 180
+MAX_ITERATIONS = 30  # model requests; Gemini tends to call tools one at a time
+TIMEOUT_S = 240
 MAX_RESULT_CHARS = 2000
 
 # One run at a time: the dashboard renders a single active run, and the
 # original bot processed messages sequentially too.
 _run_lock = asyncio.Lock()
-_client: anthropic.AsyncAnthropic | None = None
+_model: Model | None = None
 
 
-def _anthropic() -> anthropic.AsyncAnthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=get_settings().anthropic_api_key or None)
-    return _client
+def get_model() -> Model:
+    global _model
+    if _model is None:
+        s = get_settings()
+        if s.gemini_api_key:
+            provider = GoogleProvider(api_key=s.gemini_api_key)
+        elif s.pydantic_ai_gateway_api_key:
+            provider = gateway_provider("google", api_key=s.pydantic_ai_gateway_api_key)
+        else:
+            raise RuntimeError("Set GEMINI_API_KEY (or PYDANTIC_AI_GATEWAY_API_KEY) to run the agent.")
+        _model = GoogleModel(s.gemini_model, provider=provider)
+    return _model
 
 
 def truncate(result: Any, depth: int = 0) -> Any:
@@ -49,86 +60,83 @@ def truncate(result: Any, depth: int = 0) -> Any:
     return str(result)
 
 
-def _text(content: list) -> str:
-    return "\n".join(b.text for b in content if b.type == "text").strip()
+def _encode(result: Any) -> str:
+    safe = truncate(result)
+    encoded = safe if isinstance(safe, str) else json.dumps(safe, default=str)
+    if len(encoded) > MAX_RESULT_CHARS:
+        encoded = encoded[: MAX_RESULT_CHARS - 100] + '..."truncated"}'
+    return encoded
 
 
-async def _create(messages: list[dict]):
-    settings = get_settings()
-    params: dict[str, Any] = dict(
-        model=settings.anthropic_model,
-        max_tokens=16000,
-        system=SYSTEM_PROMPT,
-        tools=ANTHROPIC_TOOLS,
-        messages=messages,
-    )
-    if settings.anthropic_model == "claude-opus-5":
-        # On a policy decline, re-run server-side on Anthropic's recommended fallback model.
-        return await _anthropic().beta.messages.create(
-            **params, betas=["server-side-fallback-2026-07-01"], fallbacks="default"
+def build_agent(ctx: RunContext, steps: list[dict], model: Model | None = None) -> Agent:
+    """A fresh agent per run, so tool closures carry this run's WhatsApp context."""
+
+    def make(name: str) -> Tool:
+        spec = TOOLS[name]
+
+        async def call(**kwargs: Any) -> str:
+            result, description, _ = await execute(name, kwargs, ctx)
+            steps.append({"tool": name, "input": kwargs, "output": truncate(result), "description": description})
+            return _encode(result)
+
+        return Tool.from_schema(
+            call, name=name, description=spec.description, json_schema=spec.json_schema()
         )
-    return await _anthropic().messages.create(**params)
+
+    return Agent(
+        model or get_model(),
+        system_prompt=SYSTEM_PROMPT,
+        tools=[make(name) for name in TOOLS],
+        retries=2,
+    )
 
 
-async def run(trigger: str, ctx: RunContext | None = None, history: list[str] | None = None) -> str:
+async def _stream_to_dashboard(stream) -> None:
+    async for event in stream:
+        if isinstance(event, FunctionToolCallEvent):
+            await events.tool_start(event.part.tool_name, event.part.args_as_dict())
+        elif isinstance(event, FunctionToolResultEvent):
+            content = event.part.content
+            try:
+                content = json.loads(content) if isinstance(content, str) else content
+            except ValueError:
+                pass
+            await events.tool_result(event.part.tool_name, content)
+
+
+async def _drive(agent: Agent, prompt: str) -> str:
+    """Step through the agent graph, streaming each tool call/result to the dashboard as it happens."""
+    async with agent.iter(prompt, usage_limits=UsageLimits(request_limit=MAX_ITERATIONS)) as agent_run:
+        async for node in agent_run:
+            if Agent.is_call_tools_node(node):
+                async with node.stream(agent_run.ctx) as stream:
+                    await _stream_to_dashboard(stream)
+    return agent_run.result.output
+
+
+async def run(
+    trigger: str, ctx: RunContext | None = None, history: list[str] | None = None, model: Model | None = None
+) -> str:
     async with _run_lock:
-        return await _run(trigger, ctx or RunContext(), history)
+        return await _run(trigger, ctx or RunContext(), history, model)
 
 
-async def _run(trigger: str, ctx: RunContext, history: list[str] | None) -> str:
+async def _run(trigger: str, ctx: RunContext, history: list[str] | None, model: Model | None) -> str:
     await events.agent_start(trigger)
     steps: list[dict] = []
-    started = time.monotonic()
-    content = trigger
+    prompt = trigger
     if history:
-        content = "Recent messages for context:\n" + "\n".join(history) + f"\n\n---\n\nCurrent task: {trigger}"
-    messages: list[dict] = [{"role": "user", "content": content}]
+        prompt = "Recent messages for context:\n" + "\n".join(history) + f"\n\n---\n\nCurrent task: {trigger}"
 
     try:
-        for _ in range(MAX_ITERATIONS):
-            if time.monotonic() - started > TIMEOUT_S:
-                msg = f"Agent loop timed out after {TIMEOUT_S} seconds."
-                await events.agent_error(msg)
-                return msg
-
-            response = await _create(messages)
-
-            if response.stop_reason == "refusal":
-                msg = "GovMind declined this request."
-                await events.agent_error(msg)
-                return msg
-
-            if response.stop_reason != "tool_use":
-                final = _text(response.content) or "No response generated."
-                await events.agent_complete(final, steps)
-                return final
-
-            messages.append({"role": "assistant", "content": response.content})
-            calls = [b for b in response.content if b.type == "tool_use"]
-            for call in calls:
-                await events.tool_start(call.name, call.input)
-
-            outcomes = await asyncio.gather(*(execute(c.name, c.input, ctx) for c in calls))
-
-            tool_results = []
-            for call, (result, description, is_error) in zip(calls, outcomes):
-                safe = truncate(result)
-                encoded = safe if isinstance(safe, str) else json.dumps(safe, default=str)
-                if len(encoded) > MAX_RESULT_CHARS:
-                    encoded = encoded[: MAX_RESULT_CHARS - 100] + '..."truncated"}'
-                steps.append({"tool": call.name, "input": call.input, "output": safe, "description": description})
-                await events.tool_result(call.name, safe)
-                tool_results.append(
-                    {"type": "tool_result", "tool_use_id": call.id, "content": encoded, "is_error": is_error}
-                )
-            # All results for one assistant turn go back in a single user message.
-            messages.append({"role": "user", "content": tool_results})
-
-        msg = f"Agent reached maximum iterations ({MAX_ITERATIONS}) without producing a final response."
-        await events.agent_error(msg)
-        return msg
+        output = await asyncio.wait_for(_drive(build_agent(ctx, steps, model), prompt), timeout=TIMEOUT_S)
+        final = (output or "").strip() or "No response generated."
+        await events.agent_complete(final, steps)
+        return final
+    except TimeoutError:
+        msg = f"Agent loop timed out after {TIMEOUT_S} seconds."
     except Exception as err:  # any failure must still close the run on the dashboard
-        msg = f"Agent error: {err}"
         log.exception("Agent run failed")
-        await events.agent_error(msg)
-        return msg
+        msg = f"Agent error: {err}"
+    await events.agent_error(msg)
+    return msg

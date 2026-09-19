@@ -2,7 +2,6 @@ import hashlib
 import hmac
 import json
 import os
-from types import SimpleNamespace
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_govmind.db"
 os.environ["CHART_DIR"] = "./test_charts"
@@ -87,15 +86,14 @@ async def test_vote_flow_and_non_voters():
     assert all(m.address != "0x" + "gen0001".rjust(40, "0") for m in nv.registered_non_voters)
 
 
-def test_tool_schemas_are_valid_for_claude():
-    assert len(tools.ANTHROPIC_TOOLS) == 24
-    for t in tools.ANTHROPIC_TOOLS:
-        assert t["input_schema"]["type"] == "object"
-        schema = t["input_schema"]
-        assert set(schema.get("required", [])) <= set(schema["properties"])
+def test_tool_schemas_are_valid():
+    assert len(tools.TOOLS) == 24
+    for spec in tools.TOOLS.values():
+        schema = spec.json_schema()
+        assert schema["type"] == "object"
+        assert set(schema.get("required", [])) <= set(schema.get("properties", {}))
         assert not isinstance(schema.get("title"), str)
-    names = {t["name"] for t in tools.ANTHROPIC_TOOLS}
-    assert {"send_group_message", "send_direct_message", "link_wallet"} <= names
+    assert {"send_group_message", "send_direct_message", "link_wallet"} <= set(tools.TOOLS)
 
 
 async def test_tool_validation_rejects_bad_input():
@@ -149,8 +147,11 @@ def test_webhook_verification_and_signature(monkeypatch):
 
 
 async def test_agent_loop_replies_on_whatsapp(monkeypatch):
-    """Drive the loop with a fake Claude: one tool call, then a final answer."""
-    sent = []
+    """Drive the Pydantic AI agent with a scripted model: two parallel tool calls, then a final answer."""
+    from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
+    from pydantic_ai.models.function import FunctionModel
+
+    sent, emitted = [], []
 
     class FakeWA:
         async def send_text(self, to, text):
@@ -160,26 +161,46 @@ async def test_agent_loop_replies_on_whatsapp(monkeypatch):
         async def send_image(self, to, link, caption=None):
             return True
 
-    replies = iter([
-        SimpleNamespace(stop_reason="tool_use", content=[
-            SimpleNamespace(type="tool_use", id="t1", name="get_treasury_summary", input={}),
-            SimpleNamespace(type="tool_use", id="t2", name="send_direct_message",
-                            input={"text": "Runway is healthy"}),
-        ]),
-        SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text="Done")]),
-    ])
-    seen_messages = []
+    seen = []
 
-    async def fake_create(messages):
-        seen_messages.append(list(messages))
-        return next(replies)
+    def scripted(messages, info):
+        seen.append(messages)
+        if len(seen) == 1:
+            assert {t.name for t in info.function_tools} == set(tools.TOOLS)
+            return ModelResponse(parts=[
+                ToolCallPart("get_treasury_summary", {}, tool_call_id="t1"),
+                ToolCallPart("send_direct_message", {"text": "Runway is healthy"}, tool_call_id="t2"),
+            ])
+        return ModelResponse(parts=[TextPart("Done")])
 
-    monkeypatch.setattr(runner, "_create", fake_create)
+    async def record(name, *args):
+        emitted.append(name)
+
     monkeypatch.setattr(tools, "get_client", lambda: FakeWA())
+    monkeypatch.setattr(runner.events, "tool_start", lambda tool, _: record(f"start:{tool}"))
+    monkeypatch.setattr(runner.events, "tool_result", lambda tool, _: record(f"result:{tool}"))
 
-    final = await runner.run("test", tools.RunContext(sender_id="447700900001"))
+    final = await runner.run("test", tools.RunContext(sender_id="447700900001"), model=FunctionModel(scripted))
     assert final == "Done"
     assert sent == [("447700900001", "Runway is healthy")]
-    tool_results = seen_messages[1][-1]["content"]
-    assert [r["tool_use_id"] for r in tool_results] == ["t1", "t2"]
-    assert json.loads(tool_results[0]["content"])["total_balance_eds"] == 142.3
+    returns = {p.tool_call_id: p.content for p in seen[1][-1].parts if isinstance(p, ToolReturnPart)}
+    assert json.loads(returns["t1"])["total_balance_eds"] == 142.3
+    assert sorted(emitted) == sorted(["start:get_treasury_summary", "start:send_direct_message",
+                                      "result:get_treasury_summary", "result:send_direct_message"])
+
+
+async def test_bad_tool_args_are_reported_to_the_model():
+    from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, ToolReturnPart
+    from pydantic_ai.models.function import FunctionModel
+
+    seen = []
+
+    def scripted(messages, info):
+        seen.append(messages)
+        if len(seen) == 1:
+            return ModelResponse(parts=[ToolCallPart("get_proposal_detail", {"proposal_number": 999})])
+        return ModelResponse(parts=[TextPart("not found")])
+
+    assert await runner.run("x", model=FunctionModel(scripted)) == "not found"
+    [ret] = [p for p in seen[1][-1].parts if isinstance(p, ToolReturnPart)]
+    assert "not found" in ret.content

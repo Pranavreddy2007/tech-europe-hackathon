@@ -47,7 +47,7 @@ def _finished(task: asyncio.Task) -> None:
 async def lifespan(_: FastAPI):
     await init_db()
     s = get_settings()
-    log.info("GovMind ready — model=%s whatsapp=%s", s.anthropic_model, "on" if s.whatsapp_enabled else "off")
+    log.info("GovMind ready — model=%s whatsapp=%s", s.gemini_model, "on" if s.whatsapp_enabled else "off")
     yield
 
 
